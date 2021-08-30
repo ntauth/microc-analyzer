@@ -1,0 +1,5 @@
+{
+    int x;
+    int[3] y;
+    {int fst; int snd} z;
+}
