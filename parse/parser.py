@@ -1,4 +1,5 @@
 from uctypes import *
+from ucops import *
 
 reserved = {
     # Control
@@ -16,6 +17,8 @@ reserved = {
     # Constants
     'true':  'TRUE',
     'false': 'FALSE',
+
+    # Reserved identifiers
     'fst':   'FST',
     'snd':   'SND',
 }
@@ -76,7 +79,7 @@ def t_IDENTIFIER(t):
     return t
 
 # Ignored chars
-t_ignore = " \t"
+t_ignore = " \t\x0c"
 
 def t_newline(t):
     r'\n+'
@@ -86,14 +89,19 @@ def t_error(t):
     # print("Illegal character '%s'" % t.value[0])
     t.lexer.skip(1)
 
+def t_comment(t):
+    r'/{2,}.*'
+    pass
+
 # Build lexer
 import ply.lex as lex
 
 start = 'program'
 lexer = lex.lex()
 
-# Global-scope declarations
+# Declarations and identifiers
 declarations = {}
+identifiers  = {}
 
 # Empty production rule
 def p_epsilon(p):
@@ -102,55 +110,66 @@ def p_epsilon(p):
 
 def p_program(p):
     'program : LBRACE declarations statements RBRACE'
-    p[0] = [p[2], p[3]]
+    p[2].children.reverse()
+    p[3].children.reverse()
+    p[0] = UCBlock(p[2], p[3])
 
 # Declarations
 def p_declarations(p):
     '''declarations : declaration SEMICOLON declarations
                     | epsilon'''
-    pass
+    if len(p) > 2:
+        p[0] = p[3]
+        p[0].add_child(p[1])
+    else:
+        p[0] = UCDeclarations()
 
 def p_declaration(p):
     '''declaration : var_declaration
                    | array_var_declaration
                    | record_var_declaration'''
-    pass
+    p[0] = p[1]
 
 def p_var_declaration(p):
-    '''var_declaration : INT IDENTIFIER'''
-    p[0] = UCVariable(p[1], p[2])
+    '''var_declaration : INT IDENTIFIER
+                       | INT FST
+                       | INT SND'''
+    p[0] = UCVariable(p[1], UCIdentifier(p[2]))
     declarations[p[2]] = p[0]
-    print(p[0])
 
-def p_fst_var_declaration(p):
-    '''fst_var_declaration : INT FST'''
-    p[0] = UCVariable(p[1], p[2])
-    print(p[0])
+def p_record_field_declaration(p):
+    '''record_field_declaration : INT FST
+                                | INT SND'''
+    p[0] = UCField(p[1], UCIdentifier(p[2]))
 
-def p_snd_var_declaration(p):
-    '''snd_var_declaration : INT SND'''
-    p[0] = UCVariable(p[1], p[2])
-    print(p[0])
+# TODO: Obsolete
+# def p_fst_var_declaration(p):
+#     '''fst_var_declaration : INT FST'''
+#     p[0] = UCVariable(p[1], UCIdentifier(p[2]))
+
+# def p_snd_var_declaration(p):
+#     '''snd_var_declaration : INT SND'''
+#     p[0] = UCVariable(p[1], UCIdentifier(p[2]))
 
 def p_array_var_declaration(p):
     '''array_var_declaration : INT LBRACKET LITERAL RBRACKET IDENTIFIER'''
-    p[0] = UCArray(p[1], p[5], int(p[3])) 
+    p[0] = UCArray(p[1], UCIdentifier(p[5]), UCNumberLiteral(p[3])) 
     declarations[p[5]] = p[0]
-    print(p[0])
 
 def p_record_var_declaration(p):
-    '''record_var_declaration : LBRACE fst_var_declaration SEMICOLON snd_var_declaration RBRACE IDENTIFIER'''
-    fst = p[2]
-    snd = p[4]
-    p[0] = UCRecord('record', p[6], {'fst': fst, 'snd': snd})
+    '''record_var_declaration : LBRACE record_field_declaration SEMICOLON record_field_declaration RBRACE IDENTIFIER'''
+    p[0] = UCRecord('record', p[6], [p[2], p[4]])
     declarations[p[6]] = p[0]
-    print(p[0])
 
 # Statements
 def p_statements(p):
     '''statements : statement SEMICOLON statements
                   | epsilon'''
-    pass
+    if len(p) > 2:
+        p[0] = p[3]
+        p[0].add_child(p[1])
+    else:
+        p[0] = UCStatements()
 
                 #  | if_statement
                 #  | if_else_statement
@@ -159,12 +178,14 @@ def p_statements(p):
 def p_statement(p):
     '''statement : assignment_statement
     '''
-    pass
+    p[0] = p[1]
 
 def p_assignment_statement(p):
-    '''assignment_statement : lvalue EQQ rvalue'''
-    p[1].value = p[3]
-    p[0] = p[1]
+    '''assignment_statement : lvalue EQQ rvalue
+                            | lvalue EQQ lvalue'''
+    # p[1].value = p[3]
+    # p[0] = p[1]
+    p[0] = UCEqq(p[1], p[3])
 
 # Expressions
 def p_lvalue(p):
@@ -180,19 +201,64 @@ def p_id_lvalue(p):
 
 def p_fst_lvalue(p):
     '''fst_lvalue : IDENTIFIER DOT FST'''
-    p[0] = declarations[p[1]].value['fst']
+    # p[0] = declarations[p[1]].value['fst']
+    p[0] = UCRecordDeref(declarations[p[1]], UCIdentifier(p[3]))
 
 def p_snd_lvalue(p):
     '''snd_lvalue : IDENTIFIER DOT SND'''
-    p[0] = declarations[p[1]].value['snd']
+    # p[0] = declarations[p[1]].value['snd']
+    p[0] = UCRecordDeref(declarations[p[1]], UCIdentifier(p[3]))
 
 def p_arr_var_lvalue(p):
     '''arr_var_lvalue : IDENTIFIER LBRACKET LITERAL RBRACKET'''
-    p[0] = declarations[p[1]].value[int(p[3])]
+    # p[0] = declarations[p[1]].value[int(p[3])]
+    p[0] = UCArrayDeref(declarations[p[1]], UCNumberLiteral(p[3]))
 
 def p_rvalue(p):
-    '''rvalue : LITERAL'''
-    p[0] = int(p[1])
+    '''rvalue : literal_rvalue
+              | op_a_expr_rvalue'''
+    p[0] = p[1]
+
+def p_literal_rvalue(p):
+    '''literal_rvalue : LITERAL'''
+    p[0] = UCNumberLiteral(p[1])
+
+# TODO: Logical expressions
+
+def p_op_a_expr_rvalue(p):
+    '''op_a_expr_rvalue : lvalue op_a lvalue
+                        | lvalue op_a rvalue
+                        | rvalue op_a lvalue
+                        | rvalue op_a rvalue'''
+    p[0] = p[2](p[1], p[3])
+
+def p_op_a(p):
+    '''op_a : op_a_add
+            | op_a_sub
+            | op_a_mul
+            | op_a_div
+            | op_a_mod'''
+    p[0] = p[1]
+
+def p_op_a_add(p):
+    '''op_a_add : PLUS'''
+    p[0] = UCAdd
+
+def p_op_a_sub(p):
+    '''op_a_sub : MINUS'''
+    p[0] = UCSub
+
+def p_op_a_mul(p):
+    '''op_a_mul : MULT'''
+    p[0] = UCMul
+
+def p_op_a_div(p):
+    '''op_a_div : DIV'''
+    p[0] = UCDiv
+
+def p_op_a_mod(p):
+    '''op_a_mod : MOD'''
+    p[0] = UCMod
 
 def p_error(t):
     print("Syntax error at '%s'" % t)
@@ -204,7 +270,6 @@ parser = yacc.yacc()
 
 with open('test.txt', 'r') as f:
     src = f.read()
-    parser.parse(src)
+    ast = parser.parse(src)
 
-    for decl in declarations.values():
-        print(decl)
+    UCASTUtils.dfs_visit(ast)
