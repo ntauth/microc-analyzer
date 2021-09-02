@@ -1,26 +1,112 @@
 """Micro-C Type Definitions"""
 from ucast import *
 
+class UCProgram(UCASTNode):
+    """Micro-C Source Unit"""
+    def __init__(self, blocks=None):
+        super().__init__(None, blocks)
+        self.blocks = blocks
+
 class UCBlock(UCASTNode):
     """Micro-C Code Block"""
-    def __init__(self, decls, stmts):
-        super().__init__('__uc_block__', [decls, stmts])
+    def __init__(self, decls=None, stmts=None):
+        super().__init__(None, [decls, stmts])
         self.decls = decls
         self.stmts = stmts
+
+class UCNestedBlock(UCBlock):
+    """Micro-C Nested Block (statements only)"""
+    def __init__(self, stmts=None):
+        super().__init__(None, stmts)
 
 class UCDeclarations(UCASTNode):
     """Micro-C Declaration Sub-block"""
     def __init__(self, decls=None):
-        super().__init__('__uc_decls__', decls)
+        super().__init__(None, decls)
         self.decls = decls
+
+class UCDeclaration(UCASTNode):
+    """Micro-C Declaration"""
+    def __init__(self, ty, oprs=None):
+        super().__init__(ty, oprs)
+        self.ty = ty
+        self.oprs = oprs
 
 class UCStatements(UCASTNode):
     """Micro-C Statement Sub-block"""
     def __init__(self, stmts=None):
-        super().__init__('__uc_stmts__', stmts)
+        super().__init__(None, stmts)
         self.stmts = stmts
 
-class UCVariable(UCASTNode):
+class UCStatement(UCASTNode):
+    """Micro-C Statement"""
+    def __init__(self, ty, oprs=None):
+        super().__init__(ty, oprs)
+        self.ty = ty
+        self.oprs = oprs
+
+# TODO: Subclass UCStatement
+class UCIf(UCStatement):
+    """Micro-C If Statement"""
+    def __init__(self, b_expr, block):
+        super().__init__(None, [b_expr, block])
+        self.b_expr = b_expr
+        self.block = block
+
+# TODO: Subclass UCStatement
+class UCIfElse(UCStatement):
+    """Micro-C If-Else Statement"""
+    def __init__(self, b_expr, if_block, else_block):
+        super().__init__(None, [b_expr, if_block, else_block])
+        self.b_expr = b_expr
+        self.if_block = if_block
+        self.else_block = else_block
+
+# TODO: Subclass UCStatement
+class UCWhile(UCStatement):
+    """Micro-C While Statement"""
+    def __init__(self, b_expr, block):
+        super().__init__(None, [b_expr, block])
+        self.b_expr = b_expr
+        self.block = block
+
+# TODO: Subclass UCStatement
+class UCCall(UCStatement):
+    """Micro-C Call Statement"""
+    def __init__(self, fn, args):
+        super().__init__(None, [fn] + args)
+        self.fn = fn
+        self.args = args
+
+class UCExpression(UCASTNode):
+    """Micro-C Expression"""
+    def __init__(self, op, oprs=None):
+        super().__init__(op, oprs)
+        self.op = op
+        self.oprs = oprs
+
+class UCLExpression(UCExpression):
+    """Micro-C LValue Expression"""
+    def __init__(self, op, oprs=None):
+        super().__init__(op, oprs)
+
+class UCAExpression(UCExpression):
+    """Micro-C Arithmetic Expression"""
+    def __init__(self, op, oprs=None):
+        super().__init__(op, oprs)
+
+class UCBExpression(UCExpression):
+    """Micro-C Boolean Expression"""
+    def __init__(self, op, oprs=None):
+        super().__init__(op, oprs)
+
+class UCRecordInitializerList(UCASTNode):
+    """Micro-C Record Initializer List"""
+    def __init__(self, values):
+        super().__init__(None, values)
+        self.values = values
+
+class UCVariable(UCDeclaration):
     """Micro-C Variable"""
     def __init__(self, type, id, value=0):
         super().__init__(f'{id}')
@@ -106,7 +192,7 @@ class UCArray(UCVariable):
     def __str__(self):
         return f'{self.type}[{self.size}] {self.id}'
 
-class UCIdentifier(UCASTNode):
+class UCIdentifier(UCAExpression):
     """Micro-C Identifier"""
     def __init__(self, id):
         super().__init__(id)
@@ -115,7 +201,16 @@ class UCIdentifier(UCASTNode):
     def __str__(self):
         return self.id
 
-class UCNumberLiteral(UCASTNode):
+class UCBuiltinIdentifier(UCASTNode):
+    """Micro-C Built-in Identifier"""
+    def __init__(self, id):
+        super().__init__(id)
+        self.id = id
+
+    def __str__(self):
+        return self.id
+
+class UCNumberLiteral(UCLExpression):
     """Micro-C Number Literal"""
     def __init__(self, value):
         super().__init__(str(value))
@@ -124,3 +219,13 @@ class UCNumberLiteral(UCASTNode):
     @property
     def value(self):
         return int(self._value)
+
+class UCBoolLiteral(UCBExpression):
+    """Micro-C Bool Literal"""
+    def __init__(self, value):
+        super().__init__(bool(value))
+        self._value = value
+
+    @property
+    def value(self):
+        return bool(self._value)

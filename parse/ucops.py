@@ -1,12 +1,13 @@
 """"Micro-C Arithmetic and Logical Operations"""
 from ucast import *
+from uctypes import *
 
 class UCUnOp(UCASTNode):
     """Micro-C Unary Op"""
     def __init__(self, op, opr):
         super().__init__(op, [opr])
         self.op = op
-        self. opr = opr
+        self.opr = opr
     
     def __str__(self):
         return f'({self.op} {self.opr})'
@@ -14,10 +15,10 @@ class UCUnOp(UCASTNode):
 class UCNot(UCUnOp):
     """Micro-C Not Op"""
     def __init__(self, opr):
-        super().__init__('!', [opr])
+        super().__init__('!', opr)
 
 # TODO: Make abstract and nest concrete op classes inside it
-class UCBinOp(UCASTNode):
+class UCBinOp(UCStatement):
     """Micro-C Binary Op"""
     def __init__(self, op, lhs, rhs):
         super().__init__(op, [lhs, rhs])
@@ -28,67 +29,93 @@ class UCBinOp(UCASTNode):
     def __str__(self):
         return f'({self.op} {self.lhs} {self.rhs})'
 
-class UCAdd(UCBinOp):
+class UCExprBinOp(UCExpression):
+    """Micro-C Expression Binary Op"""
+    def __init__(self, op, lhs, rhs):
+        super().__init__(op, [lhs, rhs])
+        self.op = op
+        self.lhs = lhs
+        self.rhs = rhs
+    
+    def __str__(self):
+        return f'({self.op} {self.lhs} {self.rhs})'
+
+class UCABinOp(UCExprBinOp):
+    """Micro-C Arithmetic Binary Op"""
+    def __init__(self, op, lhs, rhs):
+        super().__init__(op, lhs, rhs)
+
+class UCBBinOp(UCExprBinOp):
+    """Micro-C Boolean Binary Op"""
+    def __init__(self, op, lhs, rhs):
+        super().__init__(op, lhs, rhs)
+
+class UCRBinOp(UCExprBinOp):
+    """Micro-C Relational Binary Op"""
+    def __init__(self, op, lhs, rhs):
+        super().__init__(op, lhs, rhs)
+
+class UCAdd(UCABinOp):
     """Micro-C `+` operator"""
     def __init__(self, lhs, rhs):
         super().__init__('+', lhs, rhs)
 
-class UCSub(UCBinOp):
+class UCSub(UCABinOp):
     """Micro-C `-` operator"""
     def __init__(self, lhs, rhs):
         super().__init__('-', lhs, rhs)
 
-class UCMod(UCBinOp):
+class UCMod(UCABinOp):
     """Micro-C `%` operator"""
     def __init__(self, lhs, rhs):
         super().__init__('%', lhs, rhs)
 
-class UCDiv(UCBinOp):
+class UCDiv(UCABinOp):
     """Micro-C `/` operator"""
     def __init__(self, lhs, rhs):
         super().__init__('/', lhs, rhs)
 
-class UCMul(UCBinOp):
+class UCMul(UCABinOp):
     """Micro-C `*` operator"""
     def __init__(self, lhs, rhs):
         super().__init__('*', lhs, rhs)
 
-class UCAnd(UCBinOp):
+class UCAnd(UCBBinOp):
     """Micro-C `&` operator"""
     def __init__(self, lhs, rhs):
         super().__init__('&', lhs, rhs)
 
-class UCOr(UCBinOp):
+class UCOr(UCBBinOp):
     """Micro-C `|` operator"""
     def __init__(self, lhs, rhs):
         super().__init__('|', lhs, rhs)
 
-class UCLt(UCBinOp):
+class UCLt(UCRBinOp):
     """Micro-C `<` operator"""
     def __init__(self, lhs, rhs):
         super().__init__('<', lhs, rhs)
 
-class UCLte(UCBinOp):
+class UCLte(UCRBinOp):
     """Micro-C `<=` operator"""
     def __init__(self, lhs, rhs):
         super().__init__('<=', lhs, rhs)
 
-class UCGt(UCBinOp):
+class UCGt(UCRBinOp):
     """Micro-C `>` operator"""
     def __init__(self, lhs, rhs):
         super().__init__('>', lhs, rhs)
 
-class UCGte(UCBinOp):
+class UCGte(UCRBinOp):
     """Micro-C `>=` operator"""
     def __init__(self, lhs, rhs):
         super().__init__('>=', lhs, rhs)
 
-class UCEq(UCBinOp):
+class UCEq(UCRBinOp):
     """Micro-C `==` operator"""
     def __init__(self, lhs, rhs):
         super().__init__('==', lhs, rhs)
 
-class UCNeq(UCBinOp):
+class UCNeq(UCRBinOp):
     """Micro-C `!=` operator"""
     def __init__(self, lhs, rhs):
         super().__init__('!=', lhs, rhs)
@@ -98,12 +125,12 @@ class UCEqq(UCBinOp):
     def __init__(self, lhs, rhs):
         super().__init__(':=', lhs, rhs)
 
-class UCArrayDeref(UCBinOp):
+class UCArrayDeref(UCABinOp):
     """Micro-C `[]` operator"""
     def __init__(self, lhs, rhs):
         super().__init__('[]', lhs, rhs)
 
-class UCRecordDeref(UCBinOp):
+class UCRecordDeref(UCABinOp):
     """Micro-C `.` operator"""
     def __init__(self, lhs, rhs):
         super().__init__('.', lhs, rhs)
