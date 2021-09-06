@@ -1,3 +1,4 @@
+"""TODO: Use lexer from lang.lex"""
 import ply.lex as lex
 
 from lang.types import *
@@ -318,11 +319,8 @@ def p_a_expression(p):
 
 def p_a_expression_unpacked(p):
     '''a_expression_unpacked : l_expression
-                              | rvalue 
-                              | lvalue op_a lvalue
-                              | lvalue op_a rvalue
-                              | rvalue op_a lvalue
-                              | rvalue op_a rvalue'''
+                             | rvalue 
+                             | a_expression op_a a_expression'''
     if len(p) > 2:
         p[0] = p[2](p[1], p[3])
     else:
