@@ -1,5 +1,10 @@
 # Micro-C Program Analysis Project
 
+## Setup
+```bash
+pip install requirements.txt
+```
+
 ## Usage
 ```bash
 python main.py --src-file test/test.uc
