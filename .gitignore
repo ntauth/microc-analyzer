@@ -4,5 +4,4 @@
 **/parser.out
 
 # Graphs
-**/*.dot
-**/*.dot.png
+cfg.out/

@@ -7,7 +7,7 @@ class UCProgram(UCASTNode):
 
     def __init__(self, blocks=None):
         super().__init__(None, blocks)
-        self.blocks = blocks
+        self.blocks = self.children
 
 
 class UCBlock(UCASTNode):
@@ -18,6 +18,10 @@ class UCBlock(UCASTNode):
         self.decls = decls
         self.stmts = stmts
 
+    def add_child(self, node):
+        super().add_child(node)
+        self.decls = self.children[0] if len(self.children) > 0 else None
+        self.stmts = self.children[1] if len(self.children) > 1 else None
 
 class UCNestedBlock(UCBlock):
     """Micro-C Nested Block (statements only)"""
@@ -31,7 +35,7 @@ class UCDeclarations(UCASTNode):
 
     def __init__(self, decls=None):
         super().__init__(None, decls)
-        self.decls = decls
+        self.decls = self.children
 
 
 class UCDeclaration(UCASTNode):
@@ -40,7 +44,7 @@ class UCDeclaration(UCASTNode):
     def __init__(self, ty, oprs=None):
         super().__init__(ty, oprs)
         self.ty = ty
-        self.oprs = oprs
+        self.oprs = self.children
 
 
 class UCStatements(UCASTNode):
@@ -48,7 +52,7 @@ class UCStatements(UCASTNode):
 
     def __init__(self, stmts=None):
         super().__init__(None, stmts)
-        self.stmts = stmts
+        self.stmts = self.children
 
 
 class UCStatement(UCASTNode):
@@ -96,6 +100,10 @@ class UCCall(UCStatement):
         self.fn = fn
         self.args = args
 
+    def __str__(self):
+        args = ', '.join(list(map(str, self.args)))
+        return f'(call {self.fn} ({args}))'
+
 
 class UCExpression(UCASTNode):
     """Micro-C Expression"""
@@ -104,6 +112,9 @@ class UCExpression(UCASTNode):
         super().__init__(op, oprs)
         self.op = op
         self.oprs = oprs
+
+    def neg(self):
+        return UCNot
 
 
 class UCLExpression(UCExpression):

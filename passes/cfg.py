@@ -182,6 +182,7 @@ class UCProgramGraph(nx.DiGraph):
             g_out.remove_node(n)
         for n in g_source_del_list:
             if n not in sources_keep:
+                g_out.nodes[n]['type'] = None
                 del g_out.sources[n]
 
         return g_out
@@ -197,43 +198,14 @@ class UCProgramGraph(nx.DiGraph):
 
         def compute_aux(node):
             if isinstance(node, UCProgram):
-                assert len(node.children) == 1
-                return compute_aux(node.children[0])
+                assert len(node.blocks) == 1
+                return compute_aux(node.blocks[0])
 
             if isinstance(node, UCBlock):
-                gs = []
-           
-                for node_ in node.children:
-                   gs.append(compute_aux(node_))
-
-                return UCProgramGraph.join(gs)
-    
-            if isinstance(node, UCDeclarations):
-                gs = []
-
-                for node_ in node.children:
-                    gs.append(compute_aux(node_))
-
-                return UCProgramGraph.join(gs)
+                return compute_aux(node.stmts)
 
             if isinstance(node, UCStatements):
-                gs = []
-
-                for node_ in node.children:
-                    gs.append(compute_aux(node_))
-
-                return UCProgramGraph.join(gs)
-
-            if isinstance(node, UCDeclaration):
-                qi = get_node_id(node)
-                qf = get_node_id(node)
-
-                g = UCProgramGraph.empty_graph
-                g.add_node(qi, type=UCProgramGraph.NodeType.source)
-                g.add_node(qf, type=UCProgramGraph.NodeType.sink)
-                g.add_edge(qi, qf, action=node)
-
-                return g
+                return UCProgramGraph.join(list(map(compute_aux, node.children)))
 
             if isinstance(node, UCStatement):
                 if isinstance(node, UCAssignment):
@@ -247,9 +219,20 @@ class UCProgramGraph(nx.DiGraph):
 
                     return g
 
+                if isinstance(node, UCCall):
+                    qi = get_node_id(node)
+                    qf = get_node_id(node)
+
+                    g = UCProgramGraph.empty_graph
+                    g.add_node(qi, type=UCProgramGraph.NodeType.source)
+                    g.add_node(qf, type=UCProgramGraph.NodeType.sink)
+                    g.add_edge(qi, qf, action=node)
+
+                    return g
+
                 if isinstance(node, UCIf):
-                    if_expr = node.children[0]
-                    if_body = node.children[1]
+                    if_expr = node.b_expr
+                    if_body = node.block
                     not_if_expr = UCNot(if_expr)
 
                     qi = get_node_id(node)
@@ -269,10 +252,10 @@ class UCProgramGraph(nx.DiGraph):
                     return UCProgramGraph.join([g, g_if_body])
 
                 if isinstance(node, UCIfElse):
-                    if_expr = node.children[0]
-                    if_body = node.children[1]
+                    if_expr = node.b_expr
+                    if_body = node.if_block
                     else_expr = UCNot(if_expr)
-                    else_body = node.children[2]
+                    else_body = node.else_block
 
                     qi = get_node_id(node)
                     qf_if = get_node_id(if_expr)
@@ -294,8 +277,8 @@ class UCProgramGraph(nx.DiGraph):
                     return UCProgramGraph.join([g, g_if_body, g_else_body])
 
                 if isinstance(node, UCWhile):
-                    while_expr = node.children[0]
-                    while_body = node.children[1]
+                    while_expr = node.b_expr
+                    while_body = node.block
                     not_while_expr = UCNot(while_expr)
 
                     qi = get_node_id(node)
@@ -326,6 +309,12 @@ class UCProgramGraph(nx.DiGraph):
 
         g_out = compute_aux(ast)
 
+        # Relabel
+        nodes = list(map(str, sorted(list(map(int, g_out.nodes)))))
+
+        nx.edge_dfs(g_out, source=g_out.sources_keys[0])
+        nx.relabel_nodes(g_out, {n_: str(n) for n_, n in zip(nodes, list(range(len(nodes))))}, copy=False)
+
         if copy:
             return g_out
 
@@ -334,3 +323,31 @@ class UCProgramGraph(nx.DiGraph):
         self.nodes = g_out.nodes
         self.sources = g_out.sources
         self.sinks = g_out.sinks
+
+    def draw(self, src_file):
+        import os
+
+        import graphviz as gv
+
+        from pathlib import Path
+        from networkx.drawing.nx_pydot import to_pydot
+
+        for _, _, attr in self.edges(data=True):
+            attr['label'] = attr['action']
+
+        src_file = Path(src_file).name.split('.')[0]
+
+        # Remove CFG files if existing
+        try:
+            os.remove(f'{src_file}.dot')
+            os.remove(f'{src_file}.dot.png')
+        except:
+            pass
+    
+        # Generate .dot
+        cfg_dot = to_pydot(self)
+        cfg_dot.set('nodesep', 3)
+        cfg_dot.write(f'{src_file}.dot', prog='dot')
+
+        # Render CFG
+        gv.render('dot', 'png', f'{src_file}.dot')

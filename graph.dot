@@ -1,0 +1,27 @@
+strict digraph  {
+nodesep=3;
+1 [selector=None, type=source];
+4 [selector=while, type=source];
+6 [selector=None, type=source];
+8 [selector=None, type=source];
+10 [selector=None, type=source];
+13 [selector=while, type=source];
+16 [selector=if, type=source];
+18 [selector=else, type=source];
+20 [selector=None, type=source];
+22 [selector=None, type=source];
+23 [selector=None, type=sink];
+1 -> 4  [action="(< i 10)", label="(< i 10)"];
+1 -> 8  [action="(! (< i 10))", label="(! (< i 10))"];
+4 -> 6  [action="(call read (([] A i)))", label="(call read (([] A i)))"];
+6 -> 1  [action="(:= i (+ i 1))", label="(:= i (+ i 1))"];
+8 -> 10  [action="(:= i 0)", label="(:= i 0)"];
+10 -> 13  [action="(< i 10)", label="(< i 10)"];
+10 -> 22  [action="(! (< i 10))", label="(! (< i 10))"];
+13 -> 16  [action="(>= ([] A i) 0)", label="(>= ([] A i) 0)"];
+13 -> 18  [action="(! (>= ([] A i) 0))", label="(! (>= ([] A i) 0))"];
+16 -> 20  [action="(:= (. R fst) (+ (. R fst) ([] A i)))", label="(:= (. R fst) (+ (. R fst) ([] A i)))"];
+18 -> 20  [action="(:= i (+ i 1))", label="(:= i (+ i 1))"];
+20 -> 10  [action="(:= (. R snd) (+ (. R snd) 1))", label="(:= (. R snd) (+ (. R snd) 1))"];
+22 -> 23  [action="(call write ((/ (. R fst) (. R snd))))", label="(call write ((/ (. R fst) (. R snd))))"];
+}

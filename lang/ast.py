@@ -14,7 +14,6 @@ class UCASTNode:
 
         if children is not None:
             for child in children:
-                if child != None:
                     self.add_child(child)
 
     def add_child(self, node):

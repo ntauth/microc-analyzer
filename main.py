@@ -2,13 +2,10 @@
 
 import argparse
 
-from networkx.drawing.nx_pydot import to_pydot
-
 from passes.parse import *
 from passes.cfg import *
+from passes.analysis import *
 
-import matplotlib.pyplot as plt
-import graphviz as gv
 
 def main():
     parser = argparse.ArgumentParser(description="Micro-C Program Analysis")
@@ -21,7 +18,6 @@ def main():
 
         # AST
         ast = parse(src)
-        print(ast)
 
         # CFG (Program Graph)
         cfg = UCProgramGraph()
@@ -29,14 +25,13 @@ def main():
         print(cfg)
 
         # Draw CFG
-        for e in cfg.edges(data=True):
-            e[2]['label'] = e[2]['action']
+        cfg.draw(args['src_file'])
 
-        cfg_dot = to_pydot(cfg)
-        cfg_dot.set('nodesep', 3)
-        cfg_dot.write('graph.dot', prog='dot')
-        # nx.drawing.nx_pydot.write_dot(cfg, 'graph.dot')
-        gv.render('dot', 'png', 'graph.dot')
+        # Reaching Definitions analysis
+        rd = UCReachingDefs(cfg)
+        successors = list(cfg.successors(cfg.sources_keys[1]))
+        print(successors)
+        print(rd.killset(cfg.sources_keys[1], successors[0]))
 
 if __name__ == "__main__":
     main()
