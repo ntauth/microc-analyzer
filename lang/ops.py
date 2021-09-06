@@ -1,6 +1,6 @@
 """"Micro-C Arithmetic and Logical Operations"""
-from .ucast import *
-from .uctypes import *
+from .ast import *
+from .types import *
 
 class UCUnOp(UCASTNode):
     """Micro-C Unary Op"""
@@ -130,7 +130,7 @@ class UCNeq(UCRBinOp):
     def __init__(self, lhs, rhs):
         super().__init__('!=', lhs, rhs)
 
-class UCEqq(UCBinOp):
+class UCAssignment(UCBinOp):
     """Micro-C `:=` operator"""
     def __init__(self, lhs, rhs):
         super().__init__(':=', lhs, rhs)

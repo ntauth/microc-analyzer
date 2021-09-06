@@ -1,5 +1,5 @@
 """Micro-C Type Definitions"""
-from .ucast import *
+from .ast import *
 
 
 class UCProgram(UCASTNode):
@@ -59,8 +59,6 @@ class UCStatement(UCASTNode):
         self.ty = ty
         self.oprs = oprs
 
-# TODO: Subclass UCStatement
-
 
 class UCIf(UCStatement):
     """Micro-C If Statement"""
@@ -69,8 +67,6 @@ class UCIf(UCStatement):
         super().__init__(None, [b_expr, block])
         self.b_expr = b_expr
         self.block = block
-
-# TODO: Subclass UCStatement
 
 
 class UCIfElse(UCStatement):
@@ -82,8 +78,6 @@ class UCIfElse(UCStatement):
         self.if_block = if_block
         self.else_block = else_block
 
-# TODO: Subclass UCStatement
-
 
 class UCWhile(UCStatement):
     """Micro-C While Statement"""
@@ -92,8 +86,6 @@ class UCWhile(UCStatement):
         super().__init__(None, [b_expr, block])
         self.b_expr = b_expr
         self.block = block
-
-# TODO: Subclass UCStatement
 
 
 class UCCall(UCStatement):
@@ -224,18 +216,6 @@ class UCArray(UCVariable):
     def __init__(self, type, id, size, values=None):
         super().__init__(type, id, values)
         self.size = size
-
-        # TODO: Obsolete
-        # if values == None:
-        #     values = [0]
-
-        # if len(values) == size.value:
-        #     self.value = [UCVariable(type, f'{id}[{i}]', values[i]) for i in range(len(values))]
-        # elif len(values) < size.value:
-        #     self.value = [UCVariable(type, f'{id}[{i}]', values[i]) for i in range(len(values))] + \
-        #                  [UCVariable(type, f'{id}[{i}]', 0) for i in range(self.size - len(values), self.size + 1)]
-        # else:
-        #     raise ValueError('Initializer list is bigger than the holding array')
 
     def __str__(self):
         return f'{self.type}[{self.size}] {self.id}'

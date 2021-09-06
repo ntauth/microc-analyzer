@@ -1,9 +1,9 @@
 """Micro-C Control-flow/Program Graph Generation"""
 import networkx as nx
 
-from .ucast   import *
-from .uctypes import *
-from .ucops   import *
+from lang.ast   import *
+from lang.types import *
+from lang.ops   import *
 
 from functools import reduce
 
@@ -241,7 +241,7 @@ class UCProgramGraph(nx.DiGraph):
                 return g
 
             if isinstance(node, UCStatement):
-                if isinstance(node, UCEqq):
+                if isinstance(node, UCAssignment):
                     qi = get_node_id(node)
                     qf = get_node_id(node)
 

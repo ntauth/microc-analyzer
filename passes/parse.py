@@ -1,6 +1,8 @@
-from .uctypes import *
-from .ucops import *
-from .cfg import *
+import ply.lex as lex
+
+from lang.types import *
+from lang.ops import *
+
 
 reserved = {
     # Control
@@ -35,26 +37,26 @@ operators = (
     'AND', 'OR', 'NOT',
 )
 
-t_LBRACKET     = r'\['
-t_RBRACKET     = r'\]'
-t_DOT          = r'\.'
+t_LBRACKET = r'\['
+t_RBRACKET = r'\]'
+t_DOT = r'\.'
 
-t_PLUS  = r'\+'
+t_PLUS = r'\+'
 t_MINUS = r'-'
-t_MULT  = r'\*'
-t_DIV   = r'/'
-t_MOD   = r'%'
+t_MULT = r'\*'
+t_DIV = r'/'
+t_MOD = r'%'
 
-t_LT  = r'<'
-t_GT  = r'>'
+t_LT = r'<'
+t_GT = r'>'
 t_LTE = r'<='
 t_GTE = r'>='
-t_EQ  = r'=='
+t_EQ = r'=='
 t_NEQ = r'!='
 t_EQQ = r':='
 
 t_AND = r'&'
-t_OR  = r'\|'
+t_OR = r'\|'
 t_NOT = r'!'
 
 tokens = (
@@ -68,13 +70,14 @@ tokens = (
     'NUM_LITERAL',
 ) + tuple(reserved.values()) + operators
 
-t_LPAREN       = r'\('
-t_RPAREN       = r'\)'
-t_LBRACE       = r'{'
-t_RBRACE       = r'}'
-t_COMMA        = r','
-t_SEMICOLON    = r';'
-t_NUM_LITERAL      = r'[0-9]+'
+t_LPAREN = r'\('
+t_RPAREN = r'\)'
+t_LBRACE = r'{'
+t_RBRACE = r'}'
+t_COMMA = r','
+t_SEMICOLON = r';'
+t_NUM_LITERAL = r'[0-9]+'
+
 
 def t_IDENTIFIER(t):
     r'[_a-zA-Z][a-zA-Z0-9_]*'
@@ -96,25 +99,24 @@ def t_comment(t):
     r'/{2,}[^\n\r]*'
     pass
 
-# Build lexer
-import ply.lex as lex
-
 # Helper functions
 def find_column(input, t):
-     line_start = input.rfind('\n', 0, t.lexpos) + 1
-     return (t.lexpos - line_start) + 1
+    line_start = input.rfind('\n', 0, t.lexpos) + 1
+    return (t.lexpos - line_start) + 1
+
 
 start = 'program'
 lexer = lex.lex()
 
 # Declarations and identifiers
 declarations = {}
-identifiers  = {}
+identifiers = {}
 
 # Empty production rule
 def p_epsilon(p):
     'epsilon :'
     pass
+
 
 def p_program(p):
     '''program : block program
@@ -125,11 +127,13 @@ def p_program(p):
     else:
         p[0] = UCProgram()
 
+
 def p_block(p):
     '''block : LBRACE declarations statements RBRACE'''
     p[2].children.reverse()
     p[3].children.reverse()
     p[0] = UCBlock(p[2], p[3])
+
 
 def p_nested_block(p):
     '''nested_block : LBRACE statements RBRACE'''
@@ -146,12 +150,14 @@ def p_declarations(p):
     else:
         p[0] = UCDeclarations()
 
+
 def p_declaration(p):
     '''declaration : var_declaration
                    | array_var_declaration
                    | record_var_declaration'''
     p[0] = p[1]
     p[0].lineno = p.lineno(1)
+
 
 def p_var_declaration(p):
     '''var_declaration : INT IDENTIFIER
@@ -160,24 +166,18 @@ def p_var_declaration(p):
     p[0] = UCVariable(p[1], UCIdentifier(p[2]))
     declarations[p[2]] = p[0]
 
+
 def p_record_field_declaration(p):
     '''record_field_declaration : INT FST
                                 | INT SND'''
     p[0] = UCField(p[1], UCIdentifier(p[2]))
 
-# TODO: Obsolete
-# def p_fst_var_declaration(p):
-#     '''fst_var_declaration : INT FST'''
-#     p[0] = UCVariable(p[1], UCIdentifier(p[2]))
-
-# def p_snd_var_declaration(p):
-#     '''snd_var_declaration : INT SND'''
-#     p[0] = UCVariable(p[1], UCIdentifier(p[2]))
 
 def p_array_var_declaration(p):
     '''array_var_declaration : INT LBRACKET NUM_LITERAL RBRACKET IDENTIFIER'''
-    p[0] = UCArray(p[1], UCIdentifier(p[5]), UCNumberLiteral(p[3])) 
+    p[0] = UCArray(p[1], UCIdentifier(p[5]), UCNumberLiteral(p[3]))
     declarations[p[5]] = p[0]
+
 
 def p_record_var_declaration(p):
     '''record_var_declaration : LBRACE record_field_declaration SEMICOLON record_field_declaration RBRACE IDENTIFIER'''
@@ -194,7 +194,7 @@ def p_statements(p):
     else:
         p[0] = UCStatements()
 
-# TODO: call_statement
+
 def p_statement(p):
     '''statement : assignment_statement SEMICOLON
                  | if_statement
@@ -204,22 +204,27 @@ def p_statement(p):
     p[0] = p[1]
     p[0].lineno = p.lineno(1)
 
+
 def p_assignment_statement(p):
     '''assignment_statement : lvalue EQQ a_expression'''
     # TODO: Check that assignment is semantically correct
-    p[0] = UCEqq(p[1], p[3])
+    p[0] = UCAssignment(p[1], p[3])
+
 
 def p_if_statement(p):
     '''if_statement : IF LPAREN b_expression RPAREN nested_block'''
     p[0] = UCIf(p[3], p[5])
 
+
 def p_if_else_statement(p):
     '''if_else_statement : IF LPAREN b_expression RPAREN nested_block ELSE nested_block'''
     p[0] = UCIfElse(p[3], p[5], p[7])
 
+
 def p_while_statement(p):
     '''while_statement : WHILE LPAREN b_expression RPAREN nested_block'''
     p[0] = UCWhile(p[3], p[5])
+
 
 def p_call_statement(p):
     '''call_statement : READ l_expression
@@ -234,19 +239,23 @@ def p_lvalue(p):
               | arr_var_lvalue'''
     p[0] = p[1]
 
+
 def p_id_lvalue(p):
     '''id_lvalue : IDENTIFIER'''
     p[0] = declarations[p[1]].id
+
 
 def p_fst_lvalue(p):
     '''fst_lvalue : IDENTIFIER DOT FST'''
     # p[0] = declarations[p[1]].value['fst']
     p[0] = UCRecordDeref(declarations[p[1]].id, UCIdentifier(p[3]))
 
+
 def p_snd_lvalue(p):
     '''snd_lvalue : IDENTIFIER DOT SND'''
     # p[0] = declarations[p[1]].value['snd']
     p[0] = UCRecordDeref(declarations[p[1]].id, UCIdentifier(p[3]))
+
 
 def p_arr_var_lvalue(p):
     '''arr_var_lvalue : IDENTIFIER LBRACKET a_expression RBRACKET
@@ -254,19 +263,23 @@ def p_arr_var_lvalue(p):
     # p[0] = declarations[p[1]].value[int(p[3])]
     p[0] = UCArrayDeref(declarations[p[1]].id, p[3])
 
+
 def p_a_rvalue(p):
     '''rvalue : number_literal
               | record_initializer_list'''
     p[0] = p[1]
 
+
 def p_number_literal(p):
     '''number_literal : NUM_LITERAL'''
     p[0] = UCNumberLiteral(p[1])
+
 
 def p_bool_literal(p):
     '''bool_literal : TRUE
                     | FALSE'''
     p[0] = UCBoolLiteral(p[1])
+
 
 def p_record_initializer_list(p):
     '''record_initializer_list : LPAREN lvalue COMMA lvalue RPAREN
@@ -275,17 +288,12 @@ def p_record_initializer_list(p):
                                | LPAREN rvalue COMMA rvalue RPAREN'''
     p[0] = UCRecordInitializerList([p[2], p[4]])
 
-# TODO: Obsolete
-# def p_expression(p):
-#     '''expression : l_expression
-#                   | a_expression
-#                   | b_expression'''
-#     p[0] = p[1]
 
 def p_l_expression(p):
     '''l_expression : lvalue'''
     p[0] = p[1]
     p[0].lineno = p.lineno(0)
+
 
 def p_a_expression(p):
     '''a_expression : l_expression
@@ -300,6 +308,7 @@ def p_a_expression(p):
         p[0] = p[1]
     p[0].lineno = p.lineno(0)
 
+
 def p_b_expression(p):
     '''b_expression : bool_literal
                     | a_expression op_r a_expression
@@ -313,6 +322,7 @@ def p_b_expression(p):
         p[0] = p[1]
     p[0].lineno = p.lineno(0)
 
+
 def p_op_a(p):
     '''op_a : op_a_add
             | op_a_sub
@@ -321,21 +331,26 @@ def p_op_a(p):
             | op_a_mod'''
     p[0] = p[1]
 
+
 def p_op_a_add(p):
     '''op_a_add : PLUS'''
     p[0] = UCAdd
+
 
 def p_op_a_sub(p):
     '''op_a_sub : MINUS'''
     p[0] = UCSub
 
+
 def p_op_a_mul(p):
     '''op_a_mul : MULT'''
     p[0] = UCMul
 
+
 def p_op_a_div(p):
     '''op_a_div : DIV'''
     p[0] = UCDiv
+
 
 def p_op_a_mod(p):
     '''op_a_mod : MOD'''
@@ -351,25 +366,31 @@ def p_op_r(p):
             | op_r_neq'''
     p[0] = p[1]
 
+
 def p_op_r_lt(p):
     '''op_r_lt : LT'''
     p[0] = UCLt
+
 
 def p_op_r_lte(p):
     '''op_r_lte : LTE'''
     p[0] = UCLte
 
+
 def p_op_r_gt(p):
     '''op_r_gt : GT'''
     p[0] = UCGt
+
 
 def p_op_r_gte(p):
     '''op_r_gte : GTE'''
     p[0] = UCGte
 
+
 def p_op_r_eq(p):
     '''op_r_eq : EQ'''
     p[0] = UCEq
+
 
 def p_op_r_neq(p):
     '''op_r_neq : NEQ'''
@@ -382,42 +403,27 @@ def p_op_b(p):
             | op_b_not'''
     p[0] = p[1]
 
+
 def p_op_b_and(p):
     '''op_b_and : AND'''
     p[0] = UCAnd
+
 
 def p_op_b_or(p):
     '''op_b_or : OR'''
     p[0] = UCOr
 
+
 def p_op_b_not(p):
     '''op_b_not : NOT'''
     p[0] = UCNot
 
+
 def p_error(t):
     global src
-    print("Syntax error at '%s' - Line %d, Column %d" % (t.value, lexer.lineno, find_column(src, t)))
+    print("Syntax error at '%s' - Line %d, Column %d" %
+          (t.value, lexer.lineno, find_column(src, t)))
 
-# with open('test.uc', 'r') as f:
-#     import networkx as nx
-
-#     global src
-#     src = f.read()
-#     ast = parser.parse(src, tracking=True)
-
-#     UCASTUtils.dfs_visit(ast)
-
-#     pg = UCProgramGraph()
-#     pgg = pg.compute(ast)
-    
-#     sources = [n for n, v in pgg.nodes(data=True) if v['type'] == 'source']
-#     dfs_edges = nx.edge_dfs(pgg, source=sources[0])
-
-#     for e in dfs_edges:
-#         x = e[0]
-#         y = e[1]
-#         action = pgg.get_edge_data(*e)['action']
-#         print(f'{x} {y} => {action}')
 
 def parse(uc_src):
     import networkx as nx
