@@ -109,6 +109,12 @@ def find_column(input, t):
 start = 'program'
 lexer = lex.lex()
 
+
+precedence = (
+    ('left', 'PLUS', 'MINUS'),
+    ('left', 'MULT', 'DIV'),
+)
+
 # Declarations and identifiers
 declarations = {}
 identifiers = {}
@@ -320,9 +326,24 @@ def p_a_expression(p):
 def p_a_expression_unpacked(p):
     '''a_expression_unpacked : l_expression
                              | rvalue 
-                             | a_expression op_a a_expression'''
+                             | a_expression PLUS a_expression
+                             | a_expression MINUS a_expression
+                             | a_expression MULT a_expression
+                             | a_expression DIV a_expression
+                             | a_expression MOD a_expression'''
     if len(p) > 2:
-        p[0] = p[2](p[1], p[3])
+        if p[2] == '+':
+            p[0] = UCAdd(p[1], p[3])
+        elif p[2] == '-':
+            p[0] = UCSub(p[1], p[3])
+        elif p[2] == '*':
+            p[0] = UCMul(p[1], p[3])
+        elif p[2] == '/':
+            p[0] = UCDiv(p[1], p[3])
+        elif p[2] == '%':
+            p[0] = UCMod(p[1], p[3])
+        else:
+            assert False
     else:
         p[0] = p[1]
 
@@ -350,39 +371,39 @@ def p_b_expression_unpacked(p):
     else:
         p[0] = p[1]
 
-
-def p_op_a(p):
-    '''op_a : op_a_add
-            | op_a_sub
-            | op_a_mul
-            | op_a_div
-            | op_a_mod'''
-    p[0] = p[1]
-
-
-def p_op_a_add(p):
-    '''op_a_add : PLUS'''
-    p[0] = UCAdd
+# TODO: Obsolete
+# def p_op_a(p):
+#     '''op_a : op_a_add
+#             | op_a_sub
+#             | op_a_mul
+#             | op_a_div
+#             | op_a_mod'''
+#     p[0] = p[1]
 
 
-def p_op_a_sub(p):
-    '''op_a_sub : MINUS'''
-    p[0] = UCSub
+# def p_op_a_add(p):
+#     '''op_a_add : PLUS'''
+#     p[0] = UCAdd
 
 
-def p_op_a_mul(p):
-    '''op_a_mul : MULT'''
-    p[0] = UCMul
+# def p_op_a_sub(p):
+#     '''op_a_sub : MINUS'''
+#     p[0] = UCSub
 
 
-def p_op_a_div(p):
-    '''op_a_div : DIV'''
-    p[0] = UCDiv
+# def p_op_a_mul(p):
+#     '''op_a_mul : MULT'''
+#     p[0] = UCMul
 
 
-def p_op_a_mod(p):
-    '''op_a_mod : MOD'''
-    p[0] = UCMod
+# def p_op_a_div(p):
+#     '''op_a_div : DIV'''
+#     p[0] = UCDiv
+
+
+# def p_op_a_mod(p):
+#     '''op_a_mod : MOD'''
+#     p[0] = UCMod
 
 # Relational operators
 def p_op_r(p):
