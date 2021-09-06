@@ -1,6 +1,6 @@
 """"Micro-C Arithmetic and Logical Operations"""
-from ucast import *
-from uctypes import *
+from .ucast import *
+from .uctypes import *
 
 class UCUnOp(UCASTNode):
     """Micro-C Unary Op"""
@@ -12,7 +12,17 @@ class UCUnOp(UCASTNode):
     def __str__(self):
         return f'({self.op} {self.opr})'
 
-class UCNot(UCUnOp):
+class UCExprUnOp(UCExpression):
+    """Micro-C Expression Unary Op"""
+    def __init__(self, op, opr):
+        super().__init__(op, [opr])
+        self.op = op
+        self.opr = opr
+    
+    def __str__(self):
+        return f'({self.op} {self.opr})'
+
+class UCNot(UCExprUnOp):
     """Micro-C Not Op"""
     def __init__(self, opr):
         super().__init__('!', opr)

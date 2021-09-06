@@ -1,5 +1,6 @@
-from uctypes import *
-from ucops import *
+from .uctypes import *
+from .ucops import *
+from .cfg import *
 
 reserved = {
     # Control
@@ -85,14 +86,14 @@ t_ignore = " \t\x0c"
 
 def t_newline(t):
     r'\n+'
-    t.lexer.lineno = t.value.count('\n')
+    t.lexer.lineno += len(t.value)
 
 def t_error(t):
     # print("Illegal character '%s'" % t.value[0])
     t.lexer.skip(1)
 
 def t_comment(t):
-    r'/{2,}.*'
+    r'/{2,}[^\n\r]*'
     pass
 
 # Build lexer
@@ -150,6 +151,7 @@ def p_declaration(p):
                    | array_var_declaration
                    | record_var_declaration'''
     p[0] = p[1]
+    p[0].lineno = p.lineno(1)
 
 def p_var_declaration(p):
     '''var_declaration : INT IDENTIFIER
@@ -200,6 +202,7 @@ def p_statement(p):
                  | while_statement
                  | call_statement SEMICOLON'''
     p[0] = p[1]
+    p[0].lineno = p.lineno(1)
 
 def p_assignment_statement(p):
     '''assignment_statement : lvalue EQQ a_expression'''
@@ -282,6 +285,7 @@ def p_record_initializer_list(p):
 def p_l_expression(p):
     '''l_expression : lvalue'''
     p[0] = p[1]
+    p[0].lineno = p.lineno(0)
 
 def p_a_expression(p):
     '''a_expression : l_expression
@@ -294,6 +298,7 @@ def p_a_expression(p):
         p[0] = p[2](p[1], p[3])
     else:
         p[0] = p[1]
+    p[0].lineno = p.lineno(0)
 
 def p_b_expression(p):
     '''b_expression : bool_literal
@@ -306,6 +311,7 @@ def p_b_expression(p):
         p[0] = p[1](p[2])
     else:
         p[0] = p[1]
+    p[0].lineno = p.lineno(0)
 
 def p_op_a(p):
     '''op_a : op_a_add
@@ -392,14 +398,36 @@ def p_error(t):
     global src
     print("Syntax error at '%s' - Line %d, Column %d" % (t.value, lexer.lineno, find_column(src, t)))
 
-# Build parser
-import ply.yacc as yacc
+# with open('test.uc', 'r') as f:
+#     import networkx as nx
 
-parser = yacc.yacc()
+#     global src
+#     src = f.read()
+#     ast = parser.parse(src, tracking=True)
 
-with open('test.uc', 'r') as f:
+#     UCASTUtils.dfs_visit(ast)
+
+#     pg = UCProgramGraph()
+#     pgg = pg.compute(ast)
+    
+#     sources = [n for n, v in pgg.nodes(data=True) if v['type'] == 'source']
+#     dfs_edges = nx.edge_dfs(pgg, source=sources[0])
+
+#     for e in dfs_edges:
+#         x = e[0]
+#         y = e[1]
+#         action = pgg.get_edge_data(*e)['action']
+#         print(f'{x} {y} => {action}')
+
+def parse(uc_src):
+    import networkx as nx
+    import ply.yacc as yacc
+
     global src
-    src = f.read()
-    ast = parser.parse(src)
 
-    UCASTUtils.dfs_visit(ast)
+    parser = yacc.yacc()
+
+    src = uc_src
+    ast = parser.parse(src, tracking=True)
+
+    return ast
