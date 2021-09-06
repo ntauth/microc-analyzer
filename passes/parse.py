@@ -111,8 +111,13 @@ lexer = lex.lex()
 
 
 precedence = (
+    ('left', 'OR'),
+    ('left', 'AND'),
+    ('left', 'EQ', 'NEQ'),
+    ('left', 'LT', 'GT', 'LTE', 'GTE'),
     ('left', 'PLUS', 'MINUS'),
-    ('left', 'MULT', 'DIV'),
+    ('left', 'MULT', 'DIV', 'MOD'),
+    ('right', 'NOT'),
 )
 
 # Declarations and identifiers
@@ -361,13 +366,36 @@ def p_b_expression(p):
 
 def p_b_expression_unpacked(p):
     '''b_expression_unpacked : bool_literal
-                             | a_expression op_r a_expression
-                             | b_expression op_b b_expression
-                             | op_b b_expression'''
+                             | a_expression LT a_expression
+                             | a_expression GT a_expression
+                             | a_expression LTE a_expression
+                             | a_expression GTE a_expression
+                             | a_expression EQ a_expression
+                             | a_expression NEQ a_expression
+                             | b_expression AND b_expression
+                             | b_expression OR b_expression
+                             | NOT b_expression'''
     if len(p) > 3:
-        p[0] = p[2](p[1], p[3])
+        if p[2] == '&':
+            p[0] = UCAnd(p[1], p[3])
+        elif p[2] == '|':
+            p[0] = UCOr(p[1], p[3])
+        elif p[2] == '<':
+            p[0] = UCLt(p[1], p[3])
+        elif p[2] == '>':
+            p[0] = UCGt(p[1], p[3])
+        elif p[2] == '<=':
+            p[0] = UCLte(p[1], p[3])
+        elif p[2] == '>=':
+            p[0] = UCGte(p[1], p[3])
+        elif p[2] == '==':
+            p[0] = UCEq(p[1], p[3])
+        elif p[2] == '!=':
+            p[0] = UCNeq(p[1], p[3])
+        else:
+            assert False
     elif len(p) > 2:
-        p[0] = p[1](p[2])
+        p[0] = UCNot(p[2])
     else:
         p[0] = p[1]
 
@@ -406,66 +434,66 @@ def p_b_expression_unpacked(p):
 #     p[0] = UCMod
 
 # Relational operators
-def p_op_r(p):
-    '''op_r : op_r_lt
-            | op_r_lte
-            | op_r_gt
-            | op_r_gte
-            | op_r_eq
-            | op_r_neq'''
-    p[0] = p[1]
+# def p_op_r(p):
+#     '''op_r : op_r_lt
+#             | op_r_lte
+#             | op_r_gt
+#             | op_r_gte
+#             | op_r_eq
+#             | op_r_neq'''
+#     p[0] = p[1]
 
 
-def p_op_r_lt(p):
-    '''op_r_lt : LT'''
-    p[0] = UCLt
+# def p_op_r_lt(p):
+#     '''op_r_lt : LT'''
+#     p[0] = UCLt
 
 
-def p_op_r_lte(p):
-    '''op_r_lte : LTE'''
-    p[0] = UCLte
+# def p_op_r_lte(p):
+#     '''op_r_lte : LTE'''
+#     p[0] = UCLte
 
 
-def p_op_r_gt(p):
-    '''op_r_gt : GT'''
-    p[0] = UCGt
+# def p_op_r_gt(p):
+#     '''op_r_gt : GT'''
+#     p[0] = UCGt
 
 
-def p_op_r_gte(p):
-    '''op_r_gte : GTE'''
-    p[0] = UCGte
+# def p_op_r_gte(p):
+#     '''op_r_gte : GTE'''
+#     p[0] = UCGte
 
 
-def p_op_r_eq(p):
-    '''op_r_eq : EQ'''
-    p[0] = UCEq
+# def p_op_r_eq(p):
+#     '''op_r_eq : EQ'''
+#     p[0] = UCEq
 
 
-def p_op_r_neq(p):
-    '''op_r_neq : NEQ'''
-    p[0] = UCNeq
+# def p_op_r_neq(p):
+#     '''op_r_neq : NEQ'''
+#     p[0] = UCNeq
 
 # Boolean operators
-def p_op_b(p):
-    '''op_b : op_b_and
-            | op_b_or
-            | op_b_not'''
-    p[0] = p[1]
+# def p_op_b(p):
+#     '''op_b : op_b_and
+#             | op_b_or
+#             | op_b_not'''
+#     p[0] = p[1]
 
 
-def p_op_b_and(p):
-    '''op_b_and : AND'''
-    p[0] = UCAnd
+# def p_op_b_and(p):
+#     '''op_b_and : AND'''
+#     p[0] = UCAnd
 
 
-def p_op_b_or(p):
-    '''op_b_or : OR'''
-    p[0] = UCOr
+# def p_op_b_or(p):
+#     '''op_b_or : OR'''
+#     p[0] = UCOr
 
 
-def p_op_b_not(p):
-    '''op_b_not : NOT'''
-    p[0] = UCNot
+# def p_op_b_not(p):
+#     '''op_b_not : NOT'''
+#     p[0] = UCNot
 
 
 def p_error(t):
