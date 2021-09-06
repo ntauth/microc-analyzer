@@ -290,37 +290,67 @@ def p_record_initializer_list(p):
 
 
 def p_l_expression(p):
-    '''l_expression : lvalue'''
-    p[0] = p[1]
+    '''l_expression : l_expression_unpacked
+                    | LPAREN l_expression_unpacked RPAREN'''
+    if len(p) == 2:
+        p[0] = p[1]
+    else:
+        p[0] = p[2]
+
     p[0].lineno = p.lineno(0)
 
 
+def p_l_expression_unpacked(p):
+    '''l_expression_unpacked : lvalue'''
+    p[0] = p[1]
+
+
 def p_a_expression(p):
-    '''a_expression : l_expression
-                    | rvalue 
-                    | lvalue op_a lvalue
-                    | lvalue op_a rvalue
-                    | rvalue op_a lvalue
-                    | rvalue op_a rvalue'''
+    '''a_expression : a_expression_unpacked
+                    | LPAREN a_expression_unpacked RPAREN'''
+    if len(p) > 2:
+        p[0] = p[2]
+    else:
+        p[0] = p[1]
+
+    p[0].lineno = p.lineno(0)
+
+
+def p_a_expression_unpacked(p):
+    '''a_expression_unpacked : l_expression
+                              | rvalue 
+                              | lvalue op_a lvalue
+                              | lvalue op_a rvalue
+                              | rvalue op_a lvalue
+                              | rvalue op_a rvalue'''
     if len(p) > 2:
         p[0] = p[2](p[1], p[3])
     else:
         p[0] = p[1]
-    p[0].lineno = p.lineno(0)
 
 
 def p_b_expression(p):
-    '''b_expression : bool_literal
-                    | a_expression op_r a_expression
-                    | b_expression op_b b_expression
-                    | op_b b_expression'''
+    '''b_expression : b_expression_unpacked
+                    | LPAREN b_expression_unpacked RPAREN'''
+    if len(p) > 2:
+        p[0] = p[2]
+    else:
+        p[0] = p[1]
+
+    p[0].lineno = p.lineno(0)
+
+
+def p_b_expression_unpacked(p):
+    '''b_expression_unpacked : bool_literal
+                             | a_expression op_r a_expression
+                             | b_expression op_b b_expression
+                             | op_b b_expression'''
     if len(p) > 3:
         p[0] = p[2](p[1], p[3])
     elif len(p) > 2:
         p[0] = p[1](p[2])
     else:
         p[0] = p[1]
-    p[0].lineno = p.lineno(0)
 
 
 def p_op_a(p):

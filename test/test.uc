@@ -6,7 +6,7 @@
     int fst; // fst can still be used outside of the record scope
 
     // Statements
-    x := 5;
+    x := (5);
     x := y[2];
     y[2] := 5;
     y[1] := x;
@@ -49,7 +49,7 @@
         y[2] := 2;
     }
 
-    while (x > 0) {
+    while (x > 0 & (y[0] < 4 | y[1] < 4)) {
         x := x - 1;
 
         if (x == 1) {

@@ -66,12 +66,6 @@ class UCProgramGraph(nx.DiGraph):
         return False
 
     def __str__(self):
-        # UCASTUtils.dfs_visit(ast)
-
-        # pg = UCProgramGraph()
-        # pgg = pg.compute(ast)
-    
-        # sources = [n for n, v in pgg.nodes(data=True) if v['type'] == 'source']
         s = ''
         dfs_edges = nx.edge_dfs(self, source=self.sources_keys[0])
 
