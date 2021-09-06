@@ -2,3 +2,7 @@
 **/__pycache__
 **/parsetab.py
 **/parser.out
+
+# Graphs
+**/*.dot
+**/*.dot.png

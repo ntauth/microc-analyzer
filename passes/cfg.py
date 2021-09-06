@@ -179,6 +179,7 @@ class UCProgramGraph(nx.DiGraph):
             
         for n in g_out_sink_del_list:
             del g_out.sinks[n]
+            g_out.remove_node(n)
         for n in g_source_del_list:
             if n not in sources_keep:
                 del g_out.sources[n]
@@ -192,7 +193,7 @@ class UCProgramGraph(nx.DiGraph):
             nonlocal node_id
 
             node_id += 1
-            return f'{id(node)}:{node_id}'
+            return f'{node_id}'
 
         def compute_aux(node):
             if isinstance(node, UCProgram):
@@ -309,9 +310,10 @@ class UCProgramGraph(nx.DiGraph):
                     g.add_edge(qi, qf_not_while, action=not_while_expr)
 
                     g_while_body = compute_aux(while_body)
-                    if g_while_body == UCProgramGraph.empty_graph:
+                    if len(g_while_body.nodes) > 0:
                         g_while_body.nodes[g_while_body.sources_keys[0]]['selector'] = 'while'
-                        g_while_body.nodes[g_while_body.sinks_keys[0]]['selector'] = 'while'
+                        for s in g_while_body.sinks_keys:
+                            g_while_body.nodes[s]['selector'] = 'while'
                     g_out = UCProgramGraph.join([g, g_while_body, g], sources_keep=[qi])
 
                     # Make the source node available again
