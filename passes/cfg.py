@@ -54,8 +54,8 @@ class UCProgramGraph(nx.DiGraph):
 
     def __init__(self, data=None, **attr):
         super().__init__(data, **attr)
-        self.sources = {}
-        self.sinks = {}
+        self.sources = []
+        self.sinks = []
 
     def __eq__(self, other):
         if isinstance(other, UCProgramGraph):
@@ -67,7 +67,7 @@ class UCProgramGraph(nx.DiGraph):
 
     def __str__(self):
         s = ''
-        dfs_edges = nx.edge_dfs(self, source=self.sources_keys[0])
+        dfs_edges = nx.edge_dfs(self, source=self.sources[0])
 
         for e in dfs_edges:
             x = e[0]
@@ -77,62 +77,36 @@ class UCProgramGraph(nx.DiGraph):
 
         return s
 
-    @property
-    def sources_keys(self):
-        return list(self.sources.keys())
-
-    @property
-    def sinks_keys(self):
-        return list(self.sinks.keys())
-
-    @property
-    def sources_values(self):
-        return reduce(lambda x, y: x + y, list(self.sources.values()), [])
-
-    @property
-    def sinks_values(self):
-        return reduce(lambda x, y: x + y, list(self.sinks.values()), [])
-
     @classproperty
     def empty_graph(cls):
         return UCProgramGraph()
 
     def add_node(self, node, **attr):
         if node not in self.sources and attr['type'] == UCProgramGraph.NodeType.source:
-            self.sources[node] = []
+            self.sources.append(node)
         if node not in self.sinks and attr['type'] == UCProgramGraph.NodeType.sink:
-            self.sinks[node] = []
+            self.sinks.append(node)
 
         if 'selector' not in attr:
             attr['selector'] = None
 
         return super().add_node(node, **attr)
 
-    def add_edge(self, u, v, **attr):
-        if u in self.sources:
-            self.sources[u].append((u, v, attr,))
-        if v in self.sinks:
-            self.sinks[v].append((u, v, attr,))
+    def remove_node(self, n):
+        super().remove_node(n)
 
-        return super().add_edge(u, v, **attr)
-
-    def remove_edge(self, u, v):
-        e = (u, v, self.edges[(u, v)],)
-
-        if u in self.sources and e in self.sources[u]:
-            self.sources[u].remove(e)
-        if v in self.sinks and e in self.sinks[v]:
-            self.sinks[v].remove(e)
-
-        return super().remove_edge(u, v)
+        if n in self.sources:
+            self.sources.remove(n)
+        if n in self.sinks:
+            self.sinks.remove(n)
 
     @staticmethod
     def union(g, h):
         g_out = nx.union(g, h)
         g_out.sources = g.sources.copy()
         g_out.sinks = g.sinks.copy()
-        g_out.sources.update(h.sources)
-        g_out.sinks.update(h.sinks)
+        g_out.sources.extend(h.sources.copy())
+        g_out.sinks.extend(h.sinks.copy())
 
         return g_out
 
@@ -153,13 +127,17 @@ class UCProgramGraph(nx.DiGraph):
 
         g_out = gs[0]
 
-        g_out_sink_del_list = []
-        g_source_del_list = []
+        g_out_sink_del_set = []
+        g_source_del_set   = []
+        g_out_edge_del_set = []
+        g_out_edge_new_set = []
 
         for g in gs[1:]:
-            g_out_sink_edges = g_out.sinks_values
-            g_source_edges = g.sources_values
-
+            g_out_sink_edges = g_out.in_edges(g_out.sinks, data=True)
+            g_source_edges = g.out_edges(g.sources, data=True)
+            print(g_out_sink_edges)
+            print(g_source_edges)
+            print()
             g_out_ = UCProgramGraph.try_union(g_out, g)
 
             if g_out_ != None:
@@ -170,20 +148,35 @@ class UCProgramGraph(nx.DiGraph):
                     if g_out.nodes[v]['selector'] == g.nodes[x]['selector']:
                         if g_out.has_edge(u, v):
                             g_out.remove_edge(u, v)
-                            g_out_sink_del_list.append(v)
+                            g_out_sink_del_set.append(v)
 
                         g_out.add_edge(u, x, **attr_uv)
+                        # g_out_edge_new_set.append((u, x, attr_uv.copy(),))
 
-                        if x not in g_source_del_list:
-                            g_source_del_list.append(x)
-            
-        for n in g_out_sink_del_list:
-            del g_out.sinks[n]
+                        if x not in g_source_del_set:
+                            g_source_del_set.append(x)
+        # print(len(g_out_edge_del_set))
+        # for u, v in g_out_edge_del_set:
+        #     print(f'- {u}, {v} {g_out.edges[u, v]["action"]}')
+        #     g_out.remove_edge(u, v)
+        #     g_out.remove_node(v)
+
+        # for u, v, attr_uv in g_out_edge_new_set:
+        #     # print(f'+ {u}, {v}')
+        #     g_out.add_edge(u, v, **attr_uv)
+        #     # g_out.nodes[v]['type'] = None
+        #     if v in g_out.sources:
+        #         g_out.sources.remove(v)
+        # print(g_out.sinks)
+        # print(g.sources)
+        # print()
+        for n in g_out_sink_del_set:
             g_out.remove_node(n)
-        for n in g_source_del_list:
+
+        for n in g_source_del_set:
             if n not in sources_keep:
                 g_out.nodes[n]['type'] = None
-                del g_out.sources[n]
+                # g_out.remove_node(n)
 
         return g_out
 
@@ -247,7 +240,7 @@ class UCProgramGraph(nx.DiGraph):
                     g.add_edge(qi, qf_not_if, action=not_if_expr)
 
                     g_if_body = compute_aux(if_body)
-                    g_if_body.nodes[g_if_body.sources_keys[0]]['selector'] = 'if'
+                    g_if_body.nodes[g_if_body.sources[0]]['selector'] = 'if'
 
                     return UCProgramGraph.join([g, g_if_body])
 
@@ -271,8 +264,8 @@ class UCProgramGraph(nx.DiGraph):
                     g_if_body = compute_aux(if_body)
                     g_else_body = compute_aux(else_body)
 
-                    g_if_body.nodes[g_if_body.sources_keys[0]]['selector'] = 'if'
-                    g_else_body.nodes[g_else_body.sources_keys[0]]['selector'] = 'else'
+                    g_if_body.nodes[g_if_body.sources[0]]['selector'] = 'if'
+                    g_else_body.nodes[g_else_body.sources[0]]['selector'] = 'else'
 
                     return UCProgramGraph.join([g, g_if_body, g_else_body])
 
@@ -293,10 +286,12 @@ class UCProgramGraph(nx.DiGraph):
                     g.add_edge(qi, qf_not_while, action=not_while_expr)
 
                     g_while_body = compute_aux(while_body)
-                    if len(g_while_body.nodes) > 0:
-                        g_while_body.nodes[g_while_body.sources_keys[0]]['selector'] = 'while'
-                        for s in g_while_body.sinks_keys:
+
+                    if g_while_body != UCProgramGraph.empty_graph:
+                        g_while_body.nodes[g_while_body.sources[0]]['selector'] = 'while'
+                        for s in g_while_body.sinks:
                             g_while_body.nodes[s]['selector'] = 'while'
+
                     g_out = UCProgramGraph.join([g, g_while_body, g], sources_keep=[qi])
 
                     # Make the source node available again
@@ -308,11 +303,11 @@ class UCProgramGraph(nx.DiGraph):
             assert False
 
         g_out = compute_aux(ast)
-
+        print(g_out.edges)
         # Relabel
         nodes = list(map(str, sorted(list(map(int, g_out.nodes)))))
 
-        nx.edge_dfs(g_out, source=g_out.sources_keys[0])
+        nx.edge_dfs(g_out, source=g_out.sources[0])
         nx.relabel_nodes(g_out, {n_: str(n) for n_, n in zip(nodes, list(range(len(nodes))))}, copy=False)
 
         if copy:
