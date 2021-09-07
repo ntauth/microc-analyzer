@@ -4,5 +4,5 @@
 **/parser.out
 
 # Graphs
-**/*.dot
-**/*.dot.png
+*.dot
+*.dot.png

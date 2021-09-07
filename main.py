@@ -29,9 +29,9 @@ def main():
 
         # Reaching Definitions analysis
         rd = UCReachingDefs(cfg)
-        successors = list(cfg.successors(cfg.sources_keys[1]))
-        print(successors)
-        print(rd.killset(cfg.sources_keys[1], successors[0]))
+        # successors = list(cfg.successors(cfg.sources_keys[1]))
+        # print(successors)
+        # print(rd.killset(cfg.sources_keys[1], successors[0]))
 
 if __name__ == "__main__":
     main()

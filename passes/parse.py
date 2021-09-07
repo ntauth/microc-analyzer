@@ -319,6 +319,7 @@ def p_l_expression_unpacked(p):
 
 def p_a_expression(p):
     '''a_expression : a_expression_unpacked
+                    | l_expression
                     | LPAREN a_expression_unpacked RPAREN'''
     if len(p) > 2:
         p[0] = p[2]
@@ -329,8 +330,7 @@ def p_a_expression(p):
 
 
 def p_a_expression_unpacked(p):
-    '''a_expression_unpacked : l_expression
-                             | rvalue 
+    '''a_expression_unpacked : rvalue 
                              | a_expression PLUS a_expression
                              | a_expression MINUS a_expression
                              | a_expression MULT a_expression
