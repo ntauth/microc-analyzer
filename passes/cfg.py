@@ -5,11 +5,9 @@ from lang.ast   import *
 from lang.types import *
 from lang.ops   import *
 
-from functools import reduce
+from utils.decorators import classproperty
 
-class classproperty(property):
-    def __get__(self, cls, owner):
-        return classmethod(self.fget).__get__(None, owner)()
+from functools import reduce
 
 class UCGraphNode:
     """Micro-C Graph Node"""
@@ -56,6 +54,7 @@ class UCProgramGraph(nx.DiGraph):
         super().__init__(data, **attr)
         self.sources = {}
         self.sinks = {}
+        self.vars = {}
 
     def __eq__(self, other):
         if isinstance(other, UCProgramGraph):
@@ -131,8 +130,10 @@ class UCProgramGraph(nx.DiGraph):
         g_out = nx.union(g, h)
         g_out.sources = g.sources.copy()
         g_out.sinks = g.sinks.copy()
+        g_out.vars = g.vars.copy()
         g_out.sources.update(h.sources)
         g_out.sinks.update(h.sinks)
+        g_out.vars.update(h.vars)
 
         return g_out
 
@@ -202,10 +203,20 @@ class UCProgramGraph(nx.DiGraph):
                 return compute_aux(node.blocks[0])
 
             if isinstance(node, UCBlock):
-                return compute_aux(node.stmts)
+                return UCProgramGraph.union(compute_aux(node.decls),
+                                            compute_aux(node.stmts))
+
+            if isinstance(node, UCDeclarations):
+                return UCProgramGraph.join(list(map(compute_aux, node.decls)))
 
             if isinstance(node, UCStatements):
-                return UCProgramGraph.join(list(map(compute_aux, node.children)))
+                return UCProgramGraph.join(list(map(compute_aux, node.stmts)))
+
+            if isinstance(node, UCDeclaration):
+                g = UCProgramGraph.empty_graph
+                g.vars[node.id] = node
+                # print(g.vars)
+                return g
 
             if isinstance(node, UCStatement):
                 if isinstance(node, UCAssignment):
@@ -303,17 +314,16 @@ class UCProgramGraph(nx.DiGraph):
                     g_out.nodes[qi]['selector'] = None
 
                     return g_out
-                
-            # Unreachable
-            assert False
+
+            return UCProgramGraph.empty_graph
 
         g_out = compute_aux(ast)
 
         # Relabel
-        nodes = list(map(str, sorted(list(map(int, g_out.nodes)))))
+        # nodes = list(map(str, sorted(list(map(int, g_out.nodes)))))
 
-        nx.edge_dfs(g_out, source=g_out.sources_keys[0])
-        nx.relabel_nodes(g_out, {n_: str(n) for n_, n in zip(nodes, list(range(len(nodes))))}, copy=False)
+        # nx.edge_dfs(g_out, source=g_out.sources_keys[0])
+        # nx.relabel_nodes(g_out, {n_: str(n) for n_, n in zip(nodes, list(range(len(nodes))))}, copy=False)
 
         if copy:
             return g_out
@@ -323,6 +333,7 @@ class UCProgramGraph(nx.DiGraph):
         self.nodes = g_out.nodes
         self.sources = g_out.sources
         self.sinks = g_out.sinks
+        self.vars = g_out.vars
 
     def draw(self, src_file):
         import os

@@ -113,9 +113,6 @@ class UCExpression(UCASTNode):
         self.op = op
         self.oprs = oprs
 
-    def neg(self):
-        return UCNot
-
 
 class UCLExpression(UCExpression):
     """Micro-C LValue Expression"""
@@ -241,6 +238,9 @@ class UCIdentifier(UCAExpression):
 
     def __str__(self):
         return self.id
+
+    def __hash__(self):
+        return hash(self.id)
 
 
 class UCBuiltinIdentifier(UCASTNode):

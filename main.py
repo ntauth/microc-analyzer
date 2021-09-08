@@ -18,6 +18,7 @@ def main():
 
         # AST
         ast = parse(src)
+        print(ast)
 
         # CFG (Program Graph)
         cfg = UCProgramGraph()
@@ -29,9 +30,16 @@ def main():
 
         # Reaching Definitions analysis
         rd = UCReachingDefs(cfg)
-        # successors = list(cfg.successors(cfg.sources_keys[1]))
-        # print(successors)
-        # print(rd.killset(cfg.sources_keys[1], successors[0]))
+        rd_mop = rd.compute()
+
+        # TODO: Pull to __str__
+        for q, rds in rd_mop.items():
+            rd_s = ''
+            
+            for rd in rds:
+                rd_s += f'({str(rd[0])}, {rd[1]}, {rd[2]})' + ', '
+
+            print(f'{q}: {rd_s}')
 
 if __name__ == "__main__":
     main()
