@@ -153,10 +153,11 @@ class UCProgramGraph(nx.DiGraph):
 
         for n in g_out_sink_del_list:
             g_out.remove_node(n)
+
         for n in g_source_del_list:
             if n not in sources_keep:
-                g_out.nodes[n]['type'] = None
                 g_out.sources.remove(n)
+                g_out.nodes[n]['type'] = None
 
         return g_out
 
@@ -178,12 +179,8 @@ class UCProgramGraph(nx.DiGraph):
                 return compute_aux(node.stmts)
 
             if isinstance(node, UCStatements):
-                if len(node.children) > 0:
-                    return UCProgramGraph.join(list(map(compute_aux, node.children)))
-                else:
-                    g = UCProgramGraph()
-                    g.add_node(get_node_id(None), type=UCProgramGraph.NodeType.source)
-                    return g
+                assert len(node.stmts) > 0
+                return UCProgramGraph.join(list(map(compute_aux, node.children)))
 
             if isinstance(node, UCStatement):
                 if isinstance(node, UCAssignment):
@@ -252,7 +249,7 @@ class UCProgramGraph(nx.DiGraph):
                     g_if_body.nodes[g_if_body.sources[0]]['selector'] = 'if'
                     g_else_body.nodes[g_else_body.sources[0]]['selector'] = 'else'
                     g_out = UCProgramGraph.join([g, g_if_body, g_else_body])
-                    print(g_out.edges(data=True))
+
                     return g_out
 
                 if isinstance(node, UCWhile):

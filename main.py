@@ -29,7 +29,7 @@ def main():
 
         # Reaching Definitions analysis
         rd = UCReachingDefs(cfg)
-        # successors = list(cfg.successors(cfg.sources_keys[1]))
+        # successors = list(cfg.successors(cfg.sources[0]))
         # print(successors)
         # print(rd.killset(cfg.sources_keys[1], successors[0]))
 
