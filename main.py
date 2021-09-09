@@ -18,28 +18,20 @@ def main():
 
         # AST
         ast = parse(src)
-        print(ast)
 
         # CFG (Program Graph)
         cfg = UCProgramGraph()
         cfg = cfg.compute(ast)
-        print(cfg)
 
         # Draw CFG
         cfg.draw(args['src_file'])
 
-        # Reaching Definitions analysis
+        # RD analysis
         rd = UCReachingDefs(cfg)
-        rd_mop = rd.compute()
+        rd.compute()
 
-        # TODO: Pull to __str__
-        for q, rds in rd_mop.items():
-            rd_s = ''
-            
-            for rd in rds:
-                rd_s += f'({str(rd[0])}, {rd[1]}, {rd[2]})' + ', '
-
-            print(f'{q}: {rd_s}')
+        # Print RD assignments
+        print(rd)
 
 if __name__ == "__main__":
     main()

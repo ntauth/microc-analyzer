@@ -5,4 +5,4 @@
 
 # Graphs
 *.dot
-*.dot.png
+*.dot.svg

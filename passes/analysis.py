@@ -12,6 +12,7 @@ class UCReachingDefs:
 
     def __init__(self, cfg):
         self.cfg = cfg
+        self.rd = {}
 
     @classproperty
     def jolly_node(cls):
@@ -22,8 +23,8 @@ class UCReachingDefs:
         return list(self.cfg.nodes) + [UCReachingDefs.jolly_node]
 
     def killset(self, u, v):
-        e = self.cfg.edges[u, v]
-        a = e['action']
+        uv = self.cfg.edges[u, v]
+        a = uv['action']
 
         if isinstance(a, UCAssignment):
             if isinstance(a.lhs, UCArrayDeref):
@@ -40,13 +41,13 @@ class UCReachingDefs:
             elif isinstance(var, UCRecord):
                 return []
             else:
-                return list(product([var_id], self.nodes_ex, self.cfg.nodes))
+                return product([var_id], self.nodes_ex, self.cfg.nodes)
         else:
             return []
 
     def genset(self, u, v):
-        e = self.cfg.edges[u, v]
-        a = e['action']
+        uv = self.cfg.edges[u, v]
+        a = uv['action']
 
         if isinstance(a, UCAssignment):
             if isinstance(a.lhs, UCArrayDeref):
@@ -63,34 +64,24 @@ class UCReachingDefs:
         else:
             return []
 
-    def compute(self):
+    def compute(self, copy=False):
         kill = {}
         gen = {}
         rd = {}
 
         # Compute kill- and gensets
         for u, v in self.cfg.edges:
-            kill[(u, v,)] = self.killset(u, v)
-            gen[(u, v,)] = self.genset(u, v)
+            kill[(u, v,)] = set(self.killset(u, v))
+            gen[(u, v,)] = set(self.genset(u, v))
 
         # Compute initial RD assignments
         for q in self.cfg.nodes:
-            if q not in self.cfg.sources_keys:
-                rd[q] = []
+            if q not in self.cfg.sources:
+                rd[q] = set()
 
-        rd[self.cfg.sources_keys[0]] = set(product(self.cfg.vars,
-                                                    [UCReachingDefs.jolly_node],
-                                                    [self.cfg.sources_keys[0]]))
-
-        # for e, ks in kill.items():
-        #     print(f'{e}: {list(map(lambda e: (str(e[0]), e[1], e[2],), list(ks)))}')
-        # print()
-        # for e, gs in gen.items():
-        #     print(f'{e}: {list(map(lambda e: (str(e[0]), e[1], e[2],), list(gs)))}')
-        # print()  
-        # for q, rds in rd.items():
-        #     print(f'{q}: {list(map(lambda e: (str(e[0]), e[1], e[2],), list(rds)))}')
-        # print()
+        rd[self.cfg.sources[0]] = set(product(self.cfg.vars,
+                                              [UCReachingDefs.jolly_node],
+                                              [self.cfg.sources[0]]))
 
         # Compute the MOP solution for RD assignments
         refine = True
@@ -99,13 +90,28 @@ class UCReachingDefs:
             refine = False
 
             for u, v in self.cfg.edges:
-                rd_u = set(rd[u])
-                rd_v = set(rd[v])
-                kill_uv = set(kill[(u, v,)])
-                gen_uv = set(gen[(u, v,)])
- 
-                if not rd_u.difference(kill_uv).union(gen_uv).issubset(rd_v):
-                    rd[v] = rd_v.union(rd_u.difference(kill_uv)).union(gen_uv)
+                kill_uv = kill[(u, v,)]
+                gen_uv = gen[(u, v,)]
+
+                rd_u_not_kill_uv = rd[u].difference(kill_uv)
+
+                if not rd_u_not_kill_uv.union(gen_uv).issubset(rd[v]):
+                    rd[v] = rd[v].union(rd_u_not_kill_uv).union(gen_uv)
                     refine = True
 
-        return rd
+        if copy:
+            return rd
+
+        self.rd = rd
+
+    def __str__(self):
+        s = ''
+
+        for q, rds in self.rd.items():
+            s += f'RD({q}): '
+
+            for rd in rds:
+                s += f'({str(rd[0])}, {rd[1]}, {rd[2]})' + ', '
+            s = s.removesuffix(', ') + '\n'
+
+        return s

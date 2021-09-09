@@ -199,13 +199,13 @@ def p_record_var_declaration(p):
 # Statements
 def p_statements(p):
     '''statements : statement statements
-                  | epsilon'''
+                  | statement'''
     if len(p) > 2:
         p[0] = p[2]
         p[0].add_child(p[1])
     else:
         p[0] = UCStatements()
-
+        p[0].add_child(p[1])
 
 def p_statement(p):
     '''statement : assignment_statement SEMICOLON
