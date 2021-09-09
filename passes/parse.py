@@ -322,7 +322,7 @@ def p_arr_var_lvalue(p):
     p[0] = UCArrayDeref(declarations[p[1]].id, p[3])
 
 
-def p_a_rvalue(p):
+def p_rvalue(p):
     '''rvalue : number_literal
               | record_initializer_list'''
     p[0] = p[1]
