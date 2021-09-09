@@ -268,6 +268,30 @@ def p_assignment_statement(p):
         if isinstance(lvalue, UCArrayDeref) and not isinstance(variable, UCArray):
             errors.append((p.lineno(0), "cannot assign an expression, `{}` is not an array".format(identifier)))
 
+    check_rvalue(p.lineno(0), rvalue)
+
+# helper function to check rvalue recursively
+def check_rvalue(lineno, rvalue):
+    if isinstance(rvalue, UCRecordInitializerList):
+        check_rvalue(lineno, rvalue.values[0])
+        check_rvalue(lineno, rvalue.values[1])
+    elif isinstance(rvalue, UCRecordDeref):
+        if not isinstance(declarations[rvalue.lhs.id], UCRecord):
+            errors.append((lineno, "`{}` is not a record".format(rvalue.lhs.id)))
+    elif isinstance(rvalue, UCArrayDeref): 
+        if not isinstance(declarations[rvalue.lhs.id], UCArray):
+            errors.append((lineno, "`{}` is not an array".format(rvalue.lhs.id))) 
+    elif isinstance(rvalue, UCIdentifier):
+        if isinstance(declarations[rvalue.id], UCRecord):
+            errors.append((lineno, "`{}` is a record".format(rvalue.id)))
+        if isinstance(declarations[rvalue.id], UCArray):
+            errors.append((lineno, "`{}` is an array".format(rvalue.id)))
+    elif isinstance(rvalue, UCNumberLiteral):
+        pass
+    else:
+        check_rvalue(lineno, rvalue.lhs)
+        check_rvalue(lineno, rvalue.rhs)
+
 
 def p_if_statement(p):
     '''if_statement : IF LPAREN b_expression RPAREN nested_block'''
