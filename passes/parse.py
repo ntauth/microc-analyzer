@@ -176,6 +176,10 @@ def p_var_declaration(p):
                        | INT FST
                        | INT SND'''
     p[0] = UCVariable(p[1], UCIdentifier(p[2]))
+
+    if p[2] in declarations:
+        raise NameError('cannot redeclare `{}`'.format(p[2]))
+
     declarations[p[2]] = p[0]
 
 
@@ -188,12 +192,20 @@ def p_record_field_declaration(p):
 def p_array_var_declaration(p):
     '''array_var_declaration : INT LBRACKET NUM_LITERAL RBRACKET IDENTIFIER'''
     p[0] = UCArray(p[1], UCIdentifier(p[5]), UCNumberLiteral(p[3]))
+
+    if p[5] in declarations:
+        raise NameError('cannot redeclare `{}`'.format(p[5]))
+
     declarations[p[5]] = p[0]
 
 
 def p_record_var_declaration(p):
     '''record_var_declaration : LBRACE record_field_declaration SEMICOLON record_field_declaration RBRACE IDENTIFIER'''
     p[0] = UCRecord('record', UCIdentifier(p[6]), [p[2], p[4]])
+
+    if p[6] in declarations:
+        raise NameError('cannot redeclare `{}`'.format(p[6]))
+
     declarations[p[6]] = p[0]
 
 # Statements
