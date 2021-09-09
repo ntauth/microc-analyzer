@@ -246,27 +246,27 @@ def p_assignment_statement(p):
         if isinstance(variable, UCRecord):
             # if the variable is a record, it must be initialized using UCRecordInitializerList 
             if not isinstance(rvalue, UCRecordInitializerList):
-                errors.append((p.lineno(0), "a record must be initialized using UCRecordInitializerList"))
+                errors.append((p.lineno(0), 'a record must be initialized using UCRecordInitializerList'))
 
             # check if there is a nested UCRecordInitializerList, which is not allowed 
             elif True in [isinstance(value, UCRecordInitializerList) for value in rvalue.values]:
-                errors.append((p.lineno(0), "UCRecordInitializerList cannot contain itself"))
+                errors.append((p.lineno(0), 'UCRecordInitializerList cannot contain itself'))
 
         elif isinstance(variable, UCArray):
             # if the variable is an array, we can only assign a value to a certain index of the array
-            errors.append((p.lineno(0), "cannot assign an expression to a variable with array type"))
+            errors.append((p.lineno(0), 'cannot assign an expression to a variable with array type'))
     else:
         # UCRecordInitializerList can only be assigned to a record 
         if isinstance(rvalue, UCRecordInitializerList):
-            errors.append((p.lineno(0), "cannot assign UCRecordInitializerList to a non record type"))
+            errors.append((p.lineno(0), 'cannot assign UCRecordInitializerList to a non record type'))
 
         # check for type mismatch for a record
         if isinstance(lvalue, UCRecordDeref) and not isinstance(variable, UCRecord):
-            errors.append((p.lineno(0), "cannot assign an expression, `{}` is not a record".format(identifier)))
+            errors.append((p.lineno(0), 'cannot assign an expression, `{}` is not a record'.format(identifier)))
 
         # check for type mismatch for an array
         if isinstance(lvalue, UCArrayDeref) and not isinstance(variable, UCArray):
-            errors.append((p.lineno(0), "cannot assign an expression, `{}` is not an array".format(identifier)))
+            errors.append((p.lineno(0), 'cannot assign an expression, `{}` is not an array'.format(identifier)))
 
     check_rvalue(p.lineno(0), rvalue)
 
@@ -277,15 +277,15 @@ def check_rvalue(lineno, rvalue):
         check_rvalue(lineno, rvalue.values[1])
     elif isinstance(rvalue, UCRecordDeref):
         if not isinstance(declarations[rvalue.lhs.id], UCRecord):
-            errors.append((lineno, "`{}` is not a record".format(rvalue.lhs.id)))
+            errors.append((lineno, '`{}` is not a record'.format(rvalue.lhs.id)))
     elif isinstance(rvalue, UCArrayDeref): 
         if not isinstance(declarations[rvalue.lhs.id], UCArray):
-            errors.append((lineno, "`{}` is not an array".format(rvalue.lhs.id))) 
+            errors.append((lineno, '`{}` is not an array'.format(rvalue.lhs.id))) 
     elif isinstance(rvalue, UCIdentifier):
         if isinstance(declarations[rvalue.id], UCRecord):
-            errors.append((lineno, "`{}` is a record".format(rvalue.id)))
+            errors.append((lineno, '`{}` is a record'.format(rvalue.id)))
         if isinstance(declarations[rvalue.id], UCArray):
-            errors.append((lineno, "`{}` is an array".format(rvalue.id)))
+            errors.append((lineno, '`{}` is an array'.format(rvalue.id)))
     elif isinstance(rvalue, UCNumberLiteral):
         pass
     else:
