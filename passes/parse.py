@@ -124,6 +124,8 @@ precedence = (
 declarations = {}
 identifiers = {}
 
+errors = []
+
 # Empty production rule
 def p_epsilon(p):
     'epsilon :'
@@ -231,8 +233,40 @@ def p_statement(p):
 
 def p_assignment_statement(p):
     '''assignment_statement : lvalue EQQ a_expression'''
-    # TODO: Check that assignment is semantically correct
     p[0] = UCAssignment(p[1], p[3])
+        
+    lvalue = p[0].lhs
+    rvalue = p[0].rhs
+
+    identifier = lvalue.id if isinstance(lvalue, UCIdentifier) else lvalue.lhs.id
+    variable = declarations[identifier] 
+
+    # check assignment for a variable which is neither UCArrayDeref nor UCRecordDeref 
+    if isinstance(lvalue, UCIdentifier):       
+        if isinstance(variable, UCRecord):
+            # if the variable is a record, it must be initialized using UCRecordInitializerList 
+            if not isinstance(rvalue, UCRecordInitializerList):
+                errors.append((p.lineno(0), "a record must be initialized using UCRecordInitializerList"))
+
+            # check if there is a nested UCRecordInitializerList, which is not allowed 
+            elif True in [isinstance(value, UCRecordInitializerList) for value in rvalue.values]:
+                errors.append((p.lineno(0), "UCRecordInitializerList cannot contain itself"))
+
+        elif isinstance(variable, UCArray):
+            # if the variable is an array, we can only assign a value to a certain index of the array
+            errors.append((p.lineno(0), "cannot assign an expression to a variable with array type"))
+    else:
+        # UCRecordInitializerList can only be assigned to a record 
+        if isinstance(rvalue, UCRecordInitializerList):
+            errors.append((p.lineno(0), "cannot assign UCRecordInitializerList to a non record type"))
+
+        # check for type mismatch for a record
+        if isinstance(lvalue, UCRecordDeref) and not isinstance(variable, UCRecord):
+            errors.append((p.lineno(0), "cannot assign an expression, `{}` is not a record".format(identifier)))
+
+        # check for type mismatch for an array
+        if isinstance(lvalue, UCArrayDeref) and not isinstance(variable, UCArray):
+            errors.append((p.lineno(0), "cannot assign an expression, `{}` is not an array".format(identifier)))
 
 
 def p_if_statement(p):
@@ -306,10 +340,7 @@ def p_bool_literal(p):
 
 
 def p_record_initializer_list(p):
-    '''record_initializer_list : LPAREN lvalue COMMA lvalue RPAREN
-                               | LPAREN lvalue COMMA rvalue RPAREN
-                               | LPAREN rvalue COMMA lvalue RPAREN
-                               | LPAREN rvalue COMMA rvalue RPAREN'''
+    '''record_initializer_list : LPAREN a_expression COMMA a_expression RPAREN'''
     p[0] = UCRecordInitializerList([p[2], p[4]])
 
 
