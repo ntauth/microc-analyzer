@@ -3,8 +3,9 @@
 from itertools import product
 
 from lang.ops import *
-
 from utils.decorators import classproperty
+
+from .internal.worklist import *
 
 
 class UCReachingDefs:
@@ -13,6 +14,7 @@ class UCReachingDefs:
     def __init__(self, cfg):
         self.cfg = cfg
         self.rd = {}
+        self.iters = -1
 
     @classproperty
     def jolly_node(cls):
@@ -84,20 +86,27 @@ class UCReachingDefs:
                                               [self.cfg.sources[0]]))
 
         # Compute the MOP solution for RD assignments
-        refine = True
+        ucw = UCWorklist(self.cfg, kill, gen, rd, strategy=UCRRStrategy)
+        self.iters = ucw.compute()
 
-        while refine:
-            refine = False
+        # TODO: Obsolete
+        # refine = True
+        # self.iters = 0
 
-            for u, v in self.cfg.edges:
-                kill_uv = kill[(u, v,)]
-                gen_uv = gen[(u, v,)]
+        # while refine:
+        #     refine = False
 
-                rd_u_not_kill_uv = rd[u].difference(kill_uv)
+        #     for u, v in self.cfg.edges:
+        #         kill_uv = kill[(u, v,)]
+        #         gen_uv = gen[(u, v,)]
 
-                if not rd_u_not_kill_uv.union(gen_uv).issubset(rd[v]):
-                    rd[v] = rd[v].union(rd_u_not_kill_uv).union(gen_uv)
-                    refine = True
+        #         rd_u_not_kill_uv = rd[u].difference(kill_uv)
+
+        #         if not rd_u_not_kill_uv.union(gen_uv).issubset(rd[v]):
+        #             rd[v] = rd[v].union(rd_u_not_kill_uv).union(gen_uv)
+        #             refine = True
+
+        #         self.iters += 1
 
         if copy:
             return rd
@@ -105,7 +114,7 @@ class UCReachingDefs:
         self.rd = rd
 
     def __str__(self):
-        s = ''
+        s = f'{type(self).__name__} analysis performed in {self.iters} iterations.\n\n'
 
         for q, rds in self.rd.items():
             s += f'RD({q}): '

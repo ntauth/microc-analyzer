@@ -18,6 +18,7 @@ def main():
 
         # AST
         ast = parse(src)
+        print(ast)
 
         # CFG (Program Graph)
         cfg = UCProgramGraph()
@@ -25,6 +26,7 @@ def main():
 
         # Draw CFG
         cfg.draw(args['src_file'])
+        print(cfg)
 
         # RD analysis
         rd = UCReachingDefs(cfg)
