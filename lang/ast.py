@@ -54,26 +54,3 @@ class UCASTNode:
             return s
 
         return str_aux(self)
-
-# class UCASTUtils:
-#     @staticmethod
-#     def dfs_visit(root, verbose=True, depth=0):
-#         if root == None:
-#             return
-
-#         node_types = ''
-
-#         if verbose:
-#             for node_ty in inspect.getmro(type(root))[:-2]:
-#                 node_types += node_ty.__name__ + ' -> '
-#             node_types = '(' + node_types.removesuffix(' -> ') + ')'
-
-#             if root.lineno != None:
-#                 node_types += f' - line {root.lineno}'
-
-#         key = f'{root.key} ' if root.key != None else ''
-
-#         print('\t' * depth + f'{key}{node_types}')
-
-#         for child in root.children:
-#             UCASTUtils.dfs_visit(child, verbose, depth + 1)
