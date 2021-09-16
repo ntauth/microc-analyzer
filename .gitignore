@@ -6,3 +6,6 @@
 # Graphs
 *.dot
 *.dot.svg
+
+# mac OS thingy
+.DS_Store
