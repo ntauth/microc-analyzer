@@ -1,11 +1,11 @@
 """Worklist Algorithm"""
 
 from abc import abstractmethod
-from itertools import product
 
+from passes.cfg import UCProgramGraph
 from lang.ops import *
-
 from utils.decorators import classproperty
+from utils.functools import apply
 
 import networkx as nx
 
@@ -15,15 +15,18 @@ class UCWorklistStrategy:
 
     def __init__(self, ucw):
         self._worklist = ucw.worklist
-        self._cfg = ucw.cfg
 
     @abstractmethod
-    def update(self, refine=True):
+    def update(self, x):
         raise NotImplementedError()
 
-    @property
-    def worklist(self):
-        return self._worklist
+    @abstractmethod
+    def insert(self, x):
+        raise NotImplementedError()
+
+    @abstractmethod
+    def extract(self):
+        raise NotImplementedError()
 
 
 class UCRRStrategy(UCWorklistStrategy):
@@ -32,12 +35,12 @@ class UCRRStrategy(UCWorklistStrategy):
     def __init__(self, ucw):
         super().__init__(ucw)
 
-    def update(self, refine=True):
-        w = self.worklist
-        wu = w.pop(0)
+    def insert(self, x):
+        if x is not None:
+            self._worklist.append(x)
 
-        if refine:
-            w.append(wu)
+    def extract(self):
+        return self._worklist.pop(0)
 
 
 class UCLIFOStrategy(UCWorklistStrategy):
@@ -46,14 +49,12 @@ class UCLIFOStrategy(UCWorklistStrategy):
     def __init__(self, ucw):
         super().__init__(ucw)
 
-    def update(self, refine=True):
-        w = self.worklist
-        wu = w.pop(0)
-        wu_post = self._cfg.out_edges(wu)
+    def insert(self, x):
+        if x is not None:
+            self._worklist.insert(0, x)
 
-        if refine:
-            for wu in wu_post:
-                w.insert(0, wu)
+    def extract(self):
+        return self._worklist.pop(0)
 
 
 class UCWorklist:
@@ -61,38 +62,51 @@ class UCWorklist:
 
     def __init__(self, cfg, kill, gen, asgn, strategy=UCRRStrategy):
         self.cfg = cfg
-        # edge_dfs for the algorithm to be deterministic
-        self.worklist = list(nx.edge_dfs(cfg, source=cfg.sources[0]))
+        self.worklist = list(nx.dfs_preorder_nodes(cfg, source=cfg.source))\
+            if cfg.source is not None\
+            else []
         self.kill = kill
         self.gen = gen
         self.asgn = asgn
         self.strategy = strategy(self)
 
+    @classproperty
+    def empty(cls):
+        return UCWorklist(UCProgramGraph.empty, set(), set(), dict())
+
+    def insert(self, x):
+        self.strategy.insert(x)
+
+    def extract(self):
+        return self.strategy.extract()
+
     def compute(self):
-        refine_set = set()
         iters = 0
 
-        while len(self.worklist) > 0:
-            u, v = self.worklist[0]
+        while self != UCWorklist.empty:
+            insert_set = set()
 
-            kill_uv = self.kill[(u, v,)]
-            gen_uv = self.gen[(u, v,)]
+            u = self.extract()
+            u_post = self.cfg.successors(u)
 
-            rd_u_not_kill_uv = self.asgn[u].difference(kill_uv)
+            for v in u_post:
+                kill_uv = self.kill[(u, v,)]
+                gen_uv = self.gen[(u, v,)]
 
-            refine = False
+                rd_u_not_kill_uv = self.asgn[u].difference(kill_uv)
 
-            if not rd_u_not_kill_uv.union(gen_uv).issubset(self.asgn[v]):
-                self.asgn[v] = self.asgn[v].union(
-                    rd_u_not_kill_uv).union(gen_uv)
-                refine_set.add((u, v,))
+                if not rd_u_not_kill_uv.union(gen_uv).issubset(self.asgn[v]):
+                    self.asgn[v] = self.asgn[v].union(
+                        rd_u_not_kill_uv).union(gen_uv)
+                    insert_set.add(v)
 
-            if (u, v,) in refine_set:
-                refine_set.remove((u, v,))
-                refine = True
-
-            self.strategy.update(refine)
-
+            apply(self.insert, insert_set)
+            
             iters += 1
 
         return iters
+
+    def __eq__(self, other):
+        if isinstance(other, UCWorklist):
+            return self.worklist == other.worklist
+        return False

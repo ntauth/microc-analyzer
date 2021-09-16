@@ -1,3 +1,5 @@
+"""Decorators for classes and methods"""
+
 
 class classproperty(property):
     def __get__(self, cls, owner):

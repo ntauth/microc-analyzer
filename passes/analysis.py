@@ -78,15 +78,15 @@ class UCReachingDefs:
 
         # Compute initial RD assignments
         for q in self.cfg.nodes:
-            if q not in self.cfg.sources:
+            if q != self.cfg.source:
                 rd[q] = set()
 
-        rd[self.cfg.sources[0]] = set(product(self.cfg.vars,
+        rd[self.cfg.source] = set(product(self.cfg.vars,
                                               [UCReachingDefs.jolly_node],
-                                              [self.cfg.sources[0]]))
+                                              [self.cfg.source]))
 
         # Compute the MOP solution for RD assignments
-        ucw = UCWorklist(self.cfg, kill, gen, rd, strategy=UCLIFOStrategy)
+        ucw = UCWorklist(self.cfg, kill, gen, rd, strategy=UCRRStrategy)
         self.iters = ucw.compute()
 
         if copy:
@@ -193,28 +193,9 @@ class UCLiveVars:
         for q in self.cfg.nodes:
             lv[q] = set()
 
-        # # Compute the MOP solution for LV assignments
+        # Compute the MOP solution for LV assignments
         ucw = UCWorklist(self.cfg, kill, gen, lv, strategy=UCRRStrategy)
         self.iters = ucw.compute()
-
-        # TODO: Obsolete (works only with unreversed graph)
-        # refine = True
-        # self.iters = 0
-
-        # while refine:
-        #     refine = False
-
-        #     for u, v in self.cfg.edges:
-        #         kill_uv = kill[(u, v,)]
-        #         gen_uv = gen[(u, v,)]
-
-        #         lv_v_not_kill_uv = lv[v].difference(kill_uv)
-
-        #         if not lv_v_not_kill_uv.union(gen_uv).issubset(lv[u]):
-        #             lv[u] = lv[u].union(lv_v_not_kill_uv).union(gen_uv)
-        #             refine = True
-
-        #         self.iters += 1
 
         if copy:
             return lv

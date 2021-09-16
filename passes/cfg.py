@@ -7,7 +7,6 @@ from lang.ops   import *
 
 from utils.decorators import classproperty
 
-from functools import reduce
 
 class UCProgramGraph(nx.DiGraph):
     class NodeType:
@@ -16,39 +15,31 @@ class UCProgramGraph(nx.DiGraph):
 
     def __init__(self, data=None, **attr):
         super().__init__(data, **attr)
+
         self.sources = []
         self.sinks = []
         self.vars = {}
 
-    def __eq__(self, other):
-        if isinstance(other, UCProgramGraph):
-            return self.sources == other.sources and \
-                    self.sinks == other.sinks and \
-                    super.__eq__(self, other)
-
-        return False
-
-    def __str__(self):
-        s = ''
-        dfs_edges = nx.edge_dfs(self, source=self.sources[0])
-
-        for e in dfs_edges:
-            x = e[0]
-            y = e[1]
-            action = self.get_edge_data(*e)['action']
-            s += f'{x} {y} => {action}\n'
-
-        return s
-
     @classproperty
-    def empty_graph(cls):
+    def empty(cls):
         return UCProgramGraph()
+
+    @property
+    def source(self):
+        return self.sources[0] if len(self.sources) > 0 else None
+
+    @property
+    def sink(self):
+        return self.sinks[0] if len(self.sinks) > 0 else None
 
     def reverse(self, copy=True):
         reversed = super().reverse(copy=copy)
-        reversed.sources = self.sinks.copy()
-        reversed.sinks = self.sources.copy()
-        reversed.vars = self.vars.copy()
+
+        sources_tmp = reversed.sources
+        reversed.sources = self.sinks.copy() if copy else self.sinks
+        reversed.sinks = sources_tmp.copy() if copy else sources_tmp
+        reversed.vars = self.vars.copy() if copy else self.vars
+
         return reversed
 
     def add_node(self, node, **attr):
@@ -92,7 +83,7 @@ class UCProgramGraph(nx.DiGraph):
     @staticmethod
     def join(gs, sources_keep=None):
         if len(gs) == 0:
-            return UCProgramGraph.empty_graph
+            return UCProgramGraph.empty
 
         if sources_keep == None:
             sources_keep = []
@@ -159,7 +150,7 @@ class UCProgramGraph(nx.DiGraph):
                 return UCProgramGraph.join(list(map(compute_aux, node.stmts)))
 
             if isinstance(node, UCDeclaration):
-                g = UCProgramGraph.empty_graph
+                g = UCProgramGraph.empty
                 g.vars[node.id] = node
 
                 return g
@@ -169,7 +160,7 @@ class UCProgramGraph(nx.DiGraph):
                     qi = get_node_id(node)
                     qf = get_node_id(node)
 
-                    g = UCProgramGraph.empty_graph
+                    g = UCProgramGraph.empty
                     g.add_node(qi, type=UCProgramGraph.NodeType.source)
                     g.add_node(qf, type=UCProgramGraph.NodeType.sink)
                     g.add_edge(qi, qf, action=node)
@@ -180,7 +171,7 @@ class UCProgramGraph(nx.DiGraph):
                     qi = get_node_id(node)
                     qf = get_node_id(node)
 
-                    g = UCProgramGraph.empty_graph
+                    g = UCProgramGraph.empty
                     g.add_node(qi, type=UCProgramGraph.NodeType.source)
                     g.add_node(qf, type=UCProgramGraph.NodeType.sink)
                     g.add_edge(qi, qf, action=node)
@@ -196,7 +187,7 @@ class UCProgramGraph(nx.DiGraph):
                     qf_if = get_node_id(if_expr)
                     qf_not_if = get_node_id(not_if_expr)
 
-                    g = UCProgramGraph.empty_graph
+                    g = UCProgramGraph.empty
                     g.add_node(qi, type=UCProgramGraph.NodeType.source)
                     g.add_node(qf_if, type=UCProgramGraph.NodeType.sink, selector='if')
                     g.add_node(qf_not_if, type=UCProgramGraph.NodeType.sink)
@@ -218,7 +209,7 @@ class UCProgramGraph(nx.DiGraph):
                     qf_if = get_node_id(if_expr)
                     qf_else = get_node_id(else_expr)
 
-                    g = UCProgramGraph.empty_graph
+                    g = UCProgramGraph.empty
                     g.add_node(qi, type=UCProgramGraph.NodeType.source)
                     g.add_node(qf_if, type=UCProgramGraph.NodeType.sink, selector='if')
                     g.add_node(qf_else, type=UCProgramGraph.NodeType.sink, selector='else')
@@ -243,7 +234,7 @@ class UCProgramGraph(nx.DiGraph):
                     qf_while = get_node_id(while_expr)
                     qf_not_while = get_node_id(not_while_expr)
 
-                    g = UCProgramGraph.empty_graph
+                    g = UCProgramGraph.empty
                     g.add_node(qi, type=UCProgramGraph.NodeType.source, selector='while')
                     g.add_node(qf_while, type=UCProgramGraph.NodeType.sink, selector='while')
                     g.add_node(qf_not_while, type=UCProgramGraph.NodeType.sink)
@@ -252,7 +243,7 @@ class UCProgramGraph(nx.DiGraph):
 
                     g_while_body = compute_aux(while_body)
 
-                    if g_while_body != UCProgramGraph.empty_graph:
+                    if g_while_body != UCProgramGraph.empty:
                         g_while_body.nodes[g_while_body.sources[0]]['selector'] = 'while'
                         for s in g_while_body.sinks:
                             g_while_body.nodes[s]['selector'] = 'while'
@@ -264,7 +255,7 @@ class UCProgramGraph(nx.DiGraph):
 
                     return g_out
 
-            return UCProgramGraph.empty_graph
+            return UCProgramGraph.empty
 
         g_out = compute_aux(ast)
 
@@ -288,6 +279,26 @@ class UCProgramGraph(nx.DiGraph):
         self.sources = g_out.sources
         self.sinks = g_out.sinks
         self.vars = g_out.vars
+
+    def __eq__(self, other):
+        if isinstance(other, UCProgramGraph):
+            return self.sources == other.sources and \
+                    self.sinks == other.sinks and \
+                    super.__eq__(self, other)
+
+        return False
+
+    def __str__(self):
+        s = ''
+        dfs_edges = nx.edge_dfs(self, source=self.sources[0])
+
+        for e in dfs_edges:
+            x = e[0]
+            y = e[1]
+            action = self.get_edge_data(*e)['action']
+            s += f'{x} {y} => {action}\n'
+
+        return s
 
     def draw(self, src_file):
         import os
