@@ -20,13 +20,6 @@ def main():
         ast = parse(src)
         print(ast)
 
-        # If there is any semantic error
-        if errors:
-            print("errors:")
-            for error in errors:
-                print("\tline {}: {}".format(error[0], error[1]))
-            exit(1)
-
         # CFG (Program Graph)
         cfg = UCProgramGraph()
         cfg = cfg.compute(ast)

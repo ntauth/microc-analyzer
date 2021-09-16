@@ -3,7 +3,7 @@ import ply.lex as lex
 
 from lang.types import *
 from lang.ops import *
-
+from .checks import *
 
 reserved = {
     # Control
@@ -120,11 +120,6 @@ precedence = (
     ('right', 'NOT'),
 )
 
-# Declarations and identifiers
-declarations = {}
-identifiers = {}
-
-errors = []
 
 # Empty production rule
 def p_epsilon(p):
@@ -179,9 +174,7 @@ def p_var_declaration(p):
                        | INT SND'''
     p[0] = UCVariable(p[1], UCIdentifier(p[2]))
 
-    if p[2] in declarations:
-        raise NameError('cannot redeclare `{}`'.format(p[2]))
-
+    check_redeclaration(p.lineno(0), p[2])
     declarations[p[2]] = p[0]
 
 
@@ -195,9 +188,7 @@ def p_array_var_declaration(p):
     '''array_var_declaration : INT LBRACKET NUM_LITERAL RBRACKET IDENTIFIER'''
     p[0] = UCArray(p[1], UCIdentifier(p[5]), UCNumberLiteral(p[3]))
 
-    if p[5] in declarations:
-        raise NameError('cannot redeclare `{}`'.format(p[5]))
-
+    check_redeclaration(p.lineno(0), p[5])
     declarations[p[5]] = p[0]
 
 
@@ -205,9 +196,7 @@ def p_record_var_declaration(p):
     '''record_var_declaration : LBRACE record_field_declaration SEMICOLON record_field_declaration RBRACE IDENTIFIER'''
     p[0] = UCRecord('record', UCIdentifier(p[6]), [p[2], p[4]])
 
-    if p[6] in declarations:
-        raise NameError('cannot redeclare `{}`'.format(p[6]))
-
+    check_redeclaration(p.lineno(0), p[6])
     declarations[p[6]] = p[0]
 
 # Statements
@@ -234,63 +223,7 @@ def p_statement(p):
 def p_assignment_statement(p):
     '''assignment_statement : lvalue EQQ a_expression'''
     p[0] = UCAssignment(p[1], p[3])
-        
-    lvalue = p[0].lhs
-    rvalue = p[0].rhs
-
-    identifier = lvalue.id if isinstance(lvalue, UCIdentifier) else lvalue.lhs.id
-    variable = declarations[identifier] 
-
-    # check assignment for a variable which is neither UCArrayDeref nor UCRecordDeref 
-    if isinstance(lvalue, UCIdentifier):       
-        if isinstance(variable, UCRecord):
-            # if the variable is a record, it must be initialized using UCRecordInitializerList 
-            if not isinstance(rvalue, UCRecordInitializerList):
-                errors.append((p.lineno(0), 'a record must be initialized using UCRecordInitializerList'))
-
-            # check if there is a nested UCRecordInitializerList, which is not allowed 
-            elif True in [isinstance(value, UCRecordInitializerList) for value in rvalue.values]:
-                errors.append((p.lineno(0), 'UCRecordInitializerList cannot contain itself'))
-
-        elif isinstance(variable, UCArray):
-            # if the variable is an array, we can only assign a value to a certain index of the array
-            errors.append((p.lineno(0), 'cannot assign an expression to a variable with array type'))
-    else:
-        # UCRecordInitializerList can only be assigned to a record 
-        if isinstance(rvalue, UCRecordInitializerList):
-            errors.append((p.lineno(0), 'cannot assign UCRecordInitializerList to a non record type'))
-
-        # check for type mismatch for a record
-        if isinstance(lvalue, UCRecordDeref) and not isinstance(variable, UCRecord):
-            errors.append((p.lineno(0), 'cannot assign an expression, `{}` is not a record'.format(identifier)))
-
-        # check for type mismatch for an array
-        if isinstance(lvalue, UCArrayDeref) and not isinstance(variable, UCArray):
-            errors.append((p.lineno(0), 'cannot assign an expression, `{}` is not an array'.format(identifier)))
-
-    check_rvalue(p.lineno(0), rvalue)
-
-# helper function to check rvalue recursively
-def check_rvalue(lineno, rvalue):
-    if isinstance(rvalue, UCRecordInitializerList):
-        check_rvalue(lineno, rvalue.values[0])
-        check_rvalue(lineno, rvalue.values[1])
-    elif isinstance(rvalue, UCRecordDeref):
-        if not isinstance(declarations[rvalue.lhs.id], UCRecord):
-            errors.append((lineno, '`{}` is not a record'.format(rvalue.lhs.id)))
-    elif isinstance(rvalue, UCArrayDeref): 
-        if not isinstance(declarations[rvalue.lhs.id], UCArray):
-            errors.append((lineno, '`{}` is not an array'.format(rvalue.lhs.id))) 
-    elif isinstance(rvalue, UCIdentifier):
-        if isinstance(declarations[rvalue.id], UCRecord):
-            errors.append((lineno, '`{}` is a record'.format(rvalue.id)))
-        if isinstance(declarations[rvalue.id], UCArray):
-            errors.append((lineno, '`{}` is an array'.format(rvalue.id)))
-    elif isinstance(rvalue, UCNumberLiteral):
-        pass
-    else:
-        check_rvalue(lineno, rvalue.lhs)
-        check_rvalue(lineno, rvalue.rhs)
+    check_semantics(p.lineno(0), p[0])
 
 
 def p_if_statement(p):
@@ -397,7 +330,7 @@ def p_a_expression(p):
 
 
 def p_a_expression_unpacked(p):
-    '''a_expression_unpacked : rvalue 
+    '''a_expression_unpacked : rvalue
                              | a_expression PLUS a_expression
                              | a_expression MINUS a_expression
                              | a_expression MULT a_expression
@@ -579,5 +512,12 @@ def parse(uc_src):
 
     src = uc_src
     ast = parser.parse(src, tracking=True)
+
+    # If there is any semantic error
+    if errors:
+        print("errors:")
+        for error in errors:
+            print("\tline {}: {}".format(error[0], error[1]))
+        exit(1)
 
     return ast
