@@ -207,7 +207,7 @@ class UCLiveVars(UCAnalysis):
             kill[(u, v,)] = set(self.killset(u, v))
             gen[(u, v,)] = set(self.genset(u, v))
 
-        # # Compute initial LV assignments
+        # Compute initial LV assignments
         for q in self.cfg.nodes:
             lv[q] = set()
 
