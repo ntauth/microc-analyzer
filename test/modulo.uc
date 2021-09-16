@@ -13,6 +13,6 @@
             r:=r-y;
             q:=q+1;        
         }
+        write r;
     }
-    write r;
 }

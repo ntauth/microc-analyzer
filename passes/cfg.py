@@ -1,9 +1,9 @@
 """Micro-C Control-flow/Program Graph Generation"""
 import networkx as nx
 
-from lang.ast   import *
+from lang.ast import *
 from lang.types import *
-from lang.ops   import *
+from lang.ops import *
 
 from utils.decorators import classproperty
 
@@ -11,7 +11,7 @@ from utils.decorators import classproperty
 class UCProgramGraph(nx.DiGraph):
     class NodeType:
         source = 'source'
-        sink   = 'sink'
+        sink = 'sink'
 
     def __init__(self, data=None, **attr):
         super().__init__(data, **attr)
@@ -124,6 +124,21 @@ class UCProgramGraph(nx.DiGraph):
 
         return g_out
 
+    def stitch_sinks(self):
+        sink_remove_list = []
+        edge_add_list = []
+
+        for sink in self.sinks[1:]:
+            for u in self.predecessors(sink):
+                attrs = self.edges[(u, sink)]
+                sink_remove_list.append(sink)
+                edge_add_list.append((u, self.sink, attrs,))
+
+        for sink in sink_remove_list:
+            self.remove_node(sink)
+        for u, v, attrs in edge_add_list:
+            self.add_edge(u, v, **attrs)
+
     def compute(self, ast, copy=True):
         node_id = 0
 
@@ -139,8 +154,13 @@ class UCProgramGraph(nx.DiGraph):
                 return compute_aux(node.blocks[0])
 
             if isinstance(node, UCBlock):
-                return UCProgramGraph.union(compute_aux(node.decls),
-                                            compute_aux(node.stmts))
+                stmts_g = compute_aux(node.stmts)
+
+                # Stitch sinks
+                if not isinstance(node, UCNestedBlock):
+                    stmts_g.stitch_sinks()
+
+                return UCProgramGraph.union(compute_aux(node.decls), stmts_g)
 
             if isinstance(node, UCDeclarations):
                 return UCProgramGraph.join(list(map(compute_aux, node.decls)))
@@ -189,7 +209,8 @@ class UCProgramGraph(nx.DiGraph):
 
                     g = UCProgramGraph.empty
                     g.add_node(qi, type=UCProgramGraph.NodeType.source)
-                    g.add_node(qf_if, type=UCProgramGraph.NodeType.sink, selector='if')
+                    g.add_node(
+                        qf_if, type=UCProgramGraph.NodeType.sink, selector='if')
                     g.add_node(qf_not_if, type=UCProgramGraph.NodeType.sink)
                     g.add_edge(qi, qf_if, action=if_expr)
                     g.add_edge(qi, qf_not_if, action=not_if_expr)
@@ -211,8 +232,10 @@ class UCProgramGraph(nx.DiGraph):
 
                     g = UCProgramGraph.empty
                     g.add_node(qi, type=UCProgramGraph.NodeType.source)
-                    g.add_node(qf_if, type=UCProgramGraph.NodeType.sink, selector='if')
-                    g.add_node(qf_else, type=UCProgramGraph.NodeType.sink, selector='else')
+                    g.add_node(
+                        qf_if, type=UCProgramGraph.NodeType.sink, selector='if')
+                    g.add_node(
+                        qf_else, type=UCProgramGraph.NodeType.sink, selector='else')
                     g.add_edge(qi, qf_if, action=if_expr)
                     g.add_edge(qi, qf_else, action=else_expr)
 
@@ -220,7 +243,8 @@ class UCProgramGraph(nx.DiGraph):
                     g_else_body = compute_aux(else_body)
 
                     g_if_body.nodes[g_if_body.sources[0]]['selector'] = 'if'
-                    g_else_body.nodes[g_else_body.sources[0]]['selector'] = 'else'
+                    g_else_body.nodes[g_else_body.sources[0]
+                                      ]['selector'] = 'else'
                     g_out = UCProgramGraph.join([g, g_if_body, g_else_body])
 
                     return g_out
@@ -235,8 +259,10 @@ class UCProgramGraph(nx.DiGraph):
                     qf_not_while = get_node_id(not_while_expr)
 
                     g = UCProgramGraph.empty
-                    g.add_node(qi, type=UCProgramGraph.NodeType.source, selector='while')
-                    g.add_node(qf_while, type=UCProgramGraph.NodeType.sink, selector='while')
+                    g.add_node(
+                        qi, type=UCProgramGraph.NodeType.source, selector='while')
+                    g.add_node(
+                        qf_while, type=UCProgramGraph.NodeType.sink, selector='while')
                     g.add_node(qf_not_while, type=UCProgramGraph.NodeType.sink)
                     g.add_edge(qi, qf_while, action=while_expr)
                     g.add_edge(qi, qf_not_while, action=not_while_expr)
@@ -244,11 +270,13 @@ class UCProgramGraph(nx.DiGraph):
                     g_while_body = compute_aux(while_body)
 
                     if g_while_body != UCProgramGraph.empty:
-                        g_while_body.nodes[g_while_body.sources[0]]['selector'] = 'while'
+                        g_while_body.nodes[g_while_body.sources[0]
+                                           ]['selector'] = 'while'
                         for s in g_while_body.sinks:
                             g_while_body.nodes[s]['selector'] = 'while'
 
-                    g_out = UCProgramGraph.join([g, g_while_body, g], sources_keep=[qi])
+                    g_out = UCProgramGraph.join(
+                        [g, g_while_body, g], sources_keep=[qi])
 
                     # Make the source node available again
                     g_out.nodes[qi]['selector'] = None
@@ -261,10 +289,12 @@ class UCProgramGraph(nx.DiGraph):
 
         # Relabel
         nodes = list(map(str, sorted(list(map(int, g_out.nodes)))))
-        nodes = list(filter(lambda n: n not in g_out.sources + g_out.sinks, nodes))
+        nodes = list(
+            filter(lambda n: n not in g_out.sources + g_out.sinks, nodes))
 
         relabel_map = {g_out.sources[0]: '▷', g_out.sinks[0]: '◀'}
-        relabel_map.update({n_: n for n_, n in zip(nodes, list(range(1, len(nodes) + 1)))})
+        relabel_map.update({n_: n for n_, n in zip(
+            nodes, list(range(1, len(nodes) + 1)))})
 
         nx.relabel_nodes(g_out, relabel_map, copy=False)
 
@@ -283,8 +313,8 @@ class UCProgramGraph(nx.DiGraph):
     def __eq__(self, other):
         if isinstance(other, UCProgramGraph):
             return self.sources == other.sources and \
-                    self.sinks == other.sinks and \
-                    super.__eq__(self, other)
+                self.sinks == other.sinks and \
+                super.__eq__(self, other)
 
         return False
 

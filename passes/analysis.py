@@ -21,18 +21,25 @@ class UCAnalysis:
         self.iters = -1
 
     @abstractmethod
-    def __str__(self, pfx, fmt):
+    def __str__(self, pfx, fmt, forward=True):
         s = f'{type(self).__name__} analysis performed in {self.iters} iterations.\n\n'
+
+        source_key = -1 if forward else math.inf
+        sink_key = math.inf if forward else -1
 
         def sort_pred(kv): return int(kv[0])\
             if kv[0] not in [self.cfg.source, self.cfg.sink]\
-            else (-1 if kv[0] == self.cfg.source else math.inf)
+            else (source_key if kv[0] == self.cfg.source else sink_key)
 
         for q, asgns in sorted(self.asgn.items(), key=sort_pred):
             s += f'{pfx}({q}): '
 
-            for asgn in asgns:
-                s += fmt(asgn) + ', '
+            if len(asgns) > 0:
+                for asgn in asgns:
+                    s += fmt(asgn) + ', '
+            else:
+                s += '∅'
+
             s = s.removesuffix(', ') + '\n'
 
         return s
@@ -131,7 +138,7 @@ class UCLiveVars(UCAnalysis):
     """Live variable analysis"""
 
     def __init__(self, cfg):
-        super().__init__(cfg)
+        super().__init__(cfg.reverse())
 
     def killset(self, u, v):
         uv = self.cfg.edges[u, v]
@@ -217,11 +224,11 @@ class UCLiveVars(UCAnalysis):
 
         # Sort LV assignment vales by identifier
         lv = {k: sorted(v, key=lambda v: str(v)) for k, v in lv.items()}
-
+        
         if copy:
             return lv
 
         self.asgn = lv
 
     def __str__(self):
-        return super().__str__('LV', lambda asgn: f'{str(asgn)}')
+        return super().__str__('LV', lambda asgn: f'{str(asgn)}', forward=False)
