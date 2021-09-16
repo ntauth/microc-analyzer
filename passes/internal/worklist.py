@@ -16,11 +16,11 @@ class UCWorklistStrategy:
     def __init__(self, ucw):
         self._worklist = ucw.worklist
         self._cfg = ucw.cfg
-    
+
     @abstractmethod
     def update(self, refine=True):
         raise NotImplementedError()
-    
+
     @property
     def worklist(self):
         return self._worklist
@@ -52,7 +52,8 @@ class UCLIFOStrategy(UCWorklistStrategy):
         wu_post = self._cfg.out_edges(wu)
 
         if refine:
-            w.extend(wu_post)
+            for wu in wu_post:
+                w.insert(0, wu)
 
 
 class UCWorklist:
@@ -60,7 +61,8 @@ class UCWorklist:
 
     def __init__(self, cfg, kill, gen, asgn, strategy=UCRRStrategy):
         self.cfg = cfg
-        self.worklist = list(nx.edge_dfs(cfg, source=cfg.sources[0])) # edge_dfs for the algorithm to be deterministic
+        # edge_dfs for the algorithm to be deterministic
+        self.worklist = list(nx.edge_dfs(cfg, source=cfg.sources[0]))
         self.kill = kill
         self.gen = gen
         self.asgn = asgn
@@ -81,15 +83,16 @@ class UCWorklist:
             refine = False
 
             if not rd_u_not_kill_uv.union(gen_uv).issubset(self.asgn[v]):
-                self.asgn[v] = self.asgn[v].union(rd_u_not_kill_uv).union(gen_uv)
+                self.asgn[v] = self.asgn[v].union(
+                    rd_u_not_kill_uv).union(gen_uv)
                 refine_set.add((u, v,))
-            
+
             if (u, v,) in refine_set:
                 refine_set.remove((u, v,))
                 refine = True
 
             self.strategy.update(refine)
-            
+
             iters += 1
 
         return iters

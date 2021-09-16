@@ -86,27 +86,8 @@ class UCReachingDefs:
                                               [self.cfg.sources[0]]))
 
         # Compute the MOP solution for RD assignments
-        ucw = UCWorklist(self.cfg, kill, gen, rd, strategy=UCRRStrategy)
+        ucw = UCWorklist(self.cfg, kill, gen, rd, strategy=UCLIFOStrategy)
         self.iters = ucw.compute()
-
-        # TODO: Obsolete
-        # refine = True
-        # self.iters = 0
-
-        # while refine:
-        #     refine = False
-
-        #     for u, v in self.cfg.edges:
-        #         kill_uv = kill[(u, v,)]
-        #         gen_uv = gen[(u, v,)]
-
-        #         rd_u_not_kill_uv = rd[u].difference(kill_uv)
-
-        #         if not rd_u_not_kill_uv.union(gen_uv).issubset(rd[v]):
-        #             rd[v] = rd[v].union(rd_u_not_kill_uv).union(gen_uv)
-        #             refine = True
-
-        #         self.iters += 1
 
         if copy:
             return rd
