@@ -105,3 +105,133 @@ class UCReachingDefs:
             s = s.removesuffix(', ') + '\n'
 
         return s
+
+
+class UCLiveVars:
+    """Live variable analysis"""
+
+    def __init__(self, cfg):
+        self.cfg = cfg.reverse()
+        self.lv = {}
+        self.iters = -1
+
+    def killset(self, u, v):
+        uv = self.cfg.edges[u, v]
+        a = uv['action']
+
+        if isinstance(a, UCAssignment):
+            if isinstance(a.lhs, UCArrayDeref):
+                var_id = a.lhs.oprs[0]
+            elif isinstance(a.lhs, UCRecordDeref):
+                var_id = a.lhs.oprs[0]
+            else:
+                var_id = a.lhs
+
+            var = self.cfg.vars[var_id]
+
+            if isinstance(var, UCArray):
+                return []
+            elif isinstance(var, UCRecord):
+                return []
+            else:
+                return [var_id]
+        else:
+            return []
+
+    def __genset(self, node, storage):
+        if isinstance(node, UCRecordInitializerList):
+            self.__genset(node.values[0], storage)
+            self.__genset(node.values[1], storage)
+        elif isinstance(node, UCArrayDeref):
+            storage.append(node.lhs)
+            self.__genset(node.rhs, storage)
+        elif isinstance(node, UCNot):
+            self.__genset(node.opr.lhs, storage)
+            self.__genset(node.opr.rhs, storage)
+        elif isinstance(node, UCIdentifier):
+            storage.append(node)
+            return
+        elif isinstance(node, UCNumberLiteral):
+            return
+        elif isinstance(node, UCBoolLiteral):
+            return
+        else:
+            self.__genset(node.lhs, storage)
+            self.__genset(node.rhs, storage)
+
+    def genset(self, u, v):
+        uv = self.cfg.edges[u, v]
+        a = uv['action']
+
+        storage = []
+        if isinstance(a, UCAssignment):
+            if isinstance(a.lhs, UCArrayDeref):
+                self.__genset(a.lhs.oprs[1], storage)
+            self.__genset(a.rhs, storage)
+        elif isinstance(a, UCExprBinOp):
+            self.__genset(a.lhs, storage)
+            self.__genset(a.rhs, storage)
+        elif isinstance(a, UCCall):
+            self.__genset(a.args[0], storage)
+        elif isinstance(a, UCNot):
+            self.__genset(a.opr.lhs, storage)
+            self.__genset(a.opr.rhs, storage)
+
+        return list(set(storage))
+
+    def compute(self, copy=False):
+        kill = {}
+        gen = {}
+        lv = {}
+
+        # Compute kill- and gensets
+        for u, v in self.cfg.edges:
+            kill[(u, v,)] = set(self.killset(u, v))
+            gen[(u, v,)] = set(self.genset(u, v))
+
+        # # Compute initial LV assignments
+        for q in self.cfg.nodes:
+            lv[q] = set()
+
+        # # Compute the MOP solution for LV assignments
+        ucw = UCWorklist(self.cfg, kill, gen, lv, strategy=UCRRStrategy)
+        self.iters = ucw.compute()
+
+        # TODO: Obsolete (works only with unreversed graph)
+        # refine = True
+        # self.iters = 0
+
+        # while refine:
+        #     refine = False
+
+        #     for u, v in self.cfg.edges:
+        #         kill_uv = kill[(u, v,)]
+        #         gen_uv = gen[(u, v,)]
+
+        #         lv_v_not_kill_uv = lv[v].difference(kill_uv)
+
+        #         if not lv_v_not_kill_uv.union(gen_uv).issubset(lv[u]):
+        #             lv[u] = lv[u].union(lv_v_not_kill_uv).union(gen_uv)
+        #             refine = True
+
+        #         self.iters += 1
+
+        if copy:
+            return lv
+
+        self.lv = lv
+
+    def __str__(self):
+        s = f'{type(self).__name__} analysis performed in {self.iters} iterations.\n\n'
+
+        for q, lvs in self.lv.items():
+            s += f'LV({q}): '
+
+            lvs_a = []
+            for lv in lvs:
+                lvs_a.append(str(lv))
+            for lv in sorted(lvs_a):
+                s += lv + ', '
+            s = s.removesuffix(', ') + '\n'
+
+        return s

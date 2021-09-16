@@ -35,5 +35,12 @@ def main():
         # Print RD assignments
         print(rd)
 
+        # LV analysis
+        lv = UCLiveVars(cfg)
+        lv.compute()
+
+        # Print LV assignments
+        print(lv)
+
 if __name__ == "__main__":
     main()
