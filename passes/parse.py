@@ -3,7 +3,7 @@ import ply.lex as lex
 
 from lang.types import *
 from lang.ops import *
-
+from .checks import *
 
 reserved = {
     # Control
@@ -120,9 +120,6 @@ precedence = (
     ('right', 'NOT'),
 )
 
-# Declarations and identifiers
-declarations = {}
-identifiers = {}
 
 # Empty production rule
 def p_epsilon(p):
@@ -176,6 +173,8 @@ def p_var_declaration(p):
                        | INT FST
                        | INT SND'''
     p[0] = UCVariable(p[1], UCIdentifier(p[2]))
+
+    check_redeclaration(p.lineno(0), p[2])
     declarations[p[2]] = p[0]
 
 
@@ -188,12 +187,16 @@ def p_record_field_declaration(p):
 def p_array_var_declaration(p):
     '''array_var_declaration : INT LBRACKET NUM_LITERAL RBRACKET IDENTIFIER'''
     p[0] = UCArray(p[1], UCIdentifier(p[5]), UCNumberLiteral(p[3]))
+
+    check_redeclaration(p.lineno(0), p[5])
     declarations[p[5]] = p[0]
 
 
 def p_record_var_declaration(p):
     '''record_var_declaration : LBRACE record_field_declaration SEMICOLON record_field_declaration RBRACE IDENTIFIER'''
     p[0] = UCRecord('record', UCIdentifier(p[6]), [p[2], p[4]])
+
+    check_redeclaration(p.lineno(0), p[6])
     declarations[p[6]] = p[0]
 
 # Statements
@@ -219,8 +222,8 @@ def p_statement(p):
 
 def p_assignment_statement(p):
     '''assignment_statement : lvalue EQQ a_expression'''
-    # TODO: Check that assignment is semantically correct
     p[0] = UCAssignment(p[1], p[3])
+    check_semantics(p.lineno(0), p[0])
 
 
 def p_if_statement(p):
@@ -276,7 +279,7 @@ def p_arr_var_lvalue(p):
     p[0] = UCArrayDeref(declarations[p[1]].id, p[3])
 
 
-def p_a_rvalue(p):
+def p_rvalue(p):
     '''rvalue : number_literal
               | record_initializer_list'''
     p[0] = p[1]
@@ -294,10 +297,7 @@ def p_bool_literal(p):
 
 
 def p_record_initializer_list(p):
-    '''record_initializer_list : LPAREN lvalue COMMA lvalue RPAREN
-                               | LPAREN lvalue COMMA rvalue RPAREN
-                               | LPAREN rvalue COMMA lvalue RPAREN
-                               | LPAREN rvalue COMMA rvalue RPAREN'''
+    '''record_initializer_list : LPAREN a_expression COMMA a_expression RPAREN'''
     p[0] = UCRecordInitializerList([p[2], p[4]])
 
 
@@ -330,7 +330,7 @@ def p_a_expression(p):
 
 
 def p_a_expression_unpacked(p):
-    '''a_expression_unpacked : rvalue 
+    '''a_expression_unpacked : rvalue
                              | a_expression PLUS a_expression
                              | a_expression MINUS a_expression
                              | a_expression MULT a_expression
@@ -512,5 +512,12 @@ def parse(uc_src):
 
     src = uc_src
     ast = parser.parse(src, tracking=True)
+
+    # If there is any semantic error
+    if errors:
+        print("errors:")
+        for error in errors:
+            print("\tline {}: {}".format(error[0], error[1]))
+        exit(1)
 
     return ast
