@@ -35,7 +35,7 @@ class UCProgramGraph(nx.DiGraph):
     def reverse(self, copy=True):
         reversed = super().reverse(copy=copy)
 
-        sources_tmp = reversed.sources
+        sources_tmp = self.sources
         reversed.sources = self.sinks.copy() if copy else self.sinks
         reversed.sinks = sources_tmp.copy() if copy else sources_tmp
         reversed.vars = self.vars.copy() if copy else self.vars

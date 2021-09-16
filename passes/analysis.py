@@ -1,6 +1,10 @@
 """Micro-C Program Analysis Pass"""
 
+import math
+
 from itertools import product
+
+from networkx.algorithms.operators.all import union_all
 
 from lang.ops import *
 from utils.decorators import classproperty
@@ -8,13 +12,37 @@ from utils.decorators import classproperty
 from .internal.worklist import *
 
 
-class UCReachingDefs:
-    """Reaching definitions analysis"""
+class UCAnalysis:
+    """Micro-C Program Analysis"""
 
     def __init__(self, cfg):
         self.cfg = cfg
-        self.rd = {}
+        self.asgn = {}
         self.iters = -1
+
+    @abstractmethod
+    def __str__(self, pfx, fmt):
+        s = f'{type(self).__name__} analysis performed in {self.iters} iterations.\n\n'
+
+        def sort_pred(kv): return int(kv[0])\
+            if kv[0] not in [self.cfg.source, self.cfg.sink]\
+            else (-1 if kv[0] == self.cfg.source else math.inf)
+
+        for q, asgns in sorted(self.asgn.items(), key=sort_pred):
+            s += f'{pfx}({q}): '
+
+            for asgn in asgns:
+                s += fmt(asgn) + ', '
+            s = s.removesuffix(', ') + '\n'
+
+        return s
+
+
+class UCReachingDefs(UCAnalysis):
+    """Reaching definitions analysis"""
+
+    def __init__(self, cfg):
+        super().__init__(cfg)
 
     @classproperty
     def jolly_node(cls):
@@ -82,38 +110,28 @@ class UCReachingDefs:
                 rd[q] = set()
 
         rd[self.cfg.source] = set(product(self.cfg.vars,
-                                              [UCReachingDefs.jolly_node],
-                                              [self.cfg.source]))
+                                          [UCReachingDefs.jolly_node],
+                                          [self.cfg.source]))
 
         # Compute the MOP solution for RD assignments
-        ucw = UCWorklist(self.cfg, kill, gen, rd, strategy=UCRRStrategy)
+        ucw = UCWorklist(self.cfg, kill, gen, rd, strategy=UCLIFOStrategy)
         self.iters = ucw.compute()
 
         if copy:
             return rd
 
-        self.rd = rd
+        self.asgn = rd
 
     def __str__(self):
-        s = f'{type(self).__name__} analysis performed in {self.iters} iterations.\n\n'
-
-        for q, rds in self.rd.items():
-            s += f'RD({q}): '
-
-            for rd in rds:
-                s += f'({str(rd[0])}, {rd[1]}, {rd[2]})' + ', '
-            s = s.removesuffix(', ') + '\n'
-
-        return s
+        return super().__str__(
+            'RD', lambda asgn: f'({str(asgn[0])}, {asgn[1]}, {asgn[2]})')
 
 
-class UCLiveVars:
+class UCLiveVars(UCAnalysis):
     """Live variable analysis"""
 
     def __init__(self, cfg):
-        self.cfg = cfg.reverse()
-        self.lv = {}
-        self.iters = -1
+        super().__init__(cfg)
 
     def killset(self, u, v):
         uv = self.cfg.edges[u, v]
@@ -197,22 +215,13 @@ class UCLiveVars:
         ucw = UCWorklist(self.cfg, kill, gen, lv, strategy=UCRRStrategy)
         self.iters = ucw.compute()
 
+        # Sort LV assignment vales by identifier
+        lv = {k: sorted(v, key=lambda v: str(v)) for k, v in lv.items()}
+
         if copy:
             return lv
 
-        self.lv = lv
+        self.asgn = lv
 
     def __str__(self):
-        s = f'{type(self).__name__} analysis performed in {self.iters} iterations.\n\n'
-
-        for q, lvs in self.lv.items():
-            s += f'LV({q}): '
-
-            lvs_a = []
-            for lv in lvs:
-                lvs_a.append(str(lv))
-            for lv in sorted(lvs_a):
-                s += lv + ', '
-            s = s.removesuffix(', ') + '\n'
-
-        return s
+        return super().__str__('LV', lambda asgn: f'{str(asgn)}')
