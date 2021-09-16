@@ -9,42 +9,6 @@ from utils.decorators import classproperty
 
 from functools import reduce
 
-class UCGraphNode:
-    """Micro-C Graph Node"""
-    def __init__(self, label):
-        self.label = label
-
-    def __eq__(self, other):
-        if isinstance(other, UCGraphNode):
-            return self.label == other.label
-        return False
-
-    def __hash__(self):
-        return hash(self.label)
-
-    def __str__(self):
-        return self.label
-
-class UCGraphEdge:
-    """Micro-C Graph Edge"""
-    def __init__(self, x, y, label):
-        self.x = x
-        self.y = y
-        self.label = label
-
-    def __eq__(self, other):
-        if isinstance(other, UCGraphEdge):
-            return self.x == other.x and \
-                    self.y == other.y and \
-                    self.label == other.label
-        return False
-    
-    def __hash__(self):
-        return hash((self.x, self.y, self.label,))
-
-    def __str__(self):
-        return f'({self.x}, {self.y}, {self.label})'
-
 class UCProgramGraph(nx.DiGraph):
     class NodeType:
         source = 'source'
@@ -61,7 +25,7 @@ class UCProgramGraph(nx.DiGraph):
             return self.sources == other.sources and \
                     self.sinks == other.sinks and \
                     super.__eq__(self, other)
-        
+
         return False
 
     def __str__(self):
@@ -79,6 +43,13 @@ class UCProgramGraph(nx.DiGraph):
     @classproperty
     def empty_graph(cls):
         return UCProgramGraph()
+
+    def reverse(self, copy=True):
+        reversed = super().reverse(copy=copy)
+        reversed.sources = self.sinks.copy()
+        reversed.sinks = self.sources.copy()
+        reversed.vars = self.vars.copy()
+        return reversed
 
     def add_node(self, node, **attr):
         if node not in self.sources and attr['type'] == UCProgramGraph.NodeType.source:
@@ -300,7 +271,7 @@ class UCProgramGraph(nx.DiGraph):
         # Relabel
         nodes = list(map(str, sorted(list(map(int, g_out.nodes)))))
         nodes = list(filter(lambda n: n not in g_out.sources + g_out.sinks, nodes))
-    
+
         relabel_map = {g_out.sources[0]: '▷', g_out.sinks[0]: '◀'}
         relabel_map.update({n_: n for n_, n in zip(nodes, list(range(1, len(nodes) + 1)))})
 
@@ -337,7 +308,7 @@ class UCProgramGraph(nx.DiGraph):
             os.remove(f'{src_file}.dot.png')
         except:
             pass
-    
+
         # Generate .dot
         cfg_dot = to_pydot(self)
         cfg_dot.set('nodesep', 3)
