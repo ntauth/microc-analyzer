@@ -20,6 +20,44 @@ class UCAnalysis:
         self.asgn = {}
         self.iters = -1
 
+    @classproperty
+    def jolly_node(cls):
+        return '?'
+
+    @property
+    def nodes_ex(self):
+        return list(self.cfg.nodes) + [UCReachingDefs.jolly_node]
+
+    def fv(self, u, v):
+        uv = self.cfg.edges[u, v]
+        a = uv['action']
+
+        def fv_aux(a):
+            fv = set()
+
+            if isinstance(a, UCIdentifier):
+                fv.add(a)
+            elif isinstance(a, UCArrayDeref):
+                fv.add(a.lhs)
+                fv = fv.union(fv_aux(a.rhs))
+            elif isinstance(a, UCRecordDeref):
+                fv.add(a.lhs)
+            else:
+                for a_ in a.children:
+                    fv = fv.union(fv_aux(a_))
+
+            return fv
+
+        if isinstance(a, UCAssignment):
+            if isinstance(a.lhs, UCArrayDeref):
+                return set.union(fv_aux(a.lhs.rhs), fv_aux(a.rhs))
+            else:
+                return fv_aux(a.rhs)
+        elif isinstance(a, UCBExpression):
+            return fv_aux(a)
+        else:
+            return set()
+
     @abstractmethod
     def __str__(self, pfx, fmt, forward=True):
         s = f'{type(self).__name__} analysis performed in {self.iters} iterations.\n\n'
@@ -50,14 +88,6 @@ class UCReachingDefs(UCAnalysis):
 
     def __init__(self, cfg):
         super().__init__(cfg)
-
-    @classproperty
-    def jolly_node(cls):
-        return '?'
-
-    @property
-    def nodes_ex(self):
-        return list(self.cfg.nodes) + [UCReachingDefs.jolly_node]
 
     @property
     def update_fn(self):
@@ -274,14 +304,6 @@ class UCDangerousVars(UCAnalysis):
     def __init__(self, cfg):
         super().__init__(cfg)
 
-    @classproperty
-    def jolly_node(cls):
-        return '?'
-
-    @property
-    def nodes_ex(self):
-        return list(self.cfg.nodes) + [UCReachingDefs.jolly_node]
-
     @property
     def update_fn(self):
         def update_fn_impl(R, u, v):
@@ -314,51 +336,25 @@ class UCDangerousVars(UCAnalysis):
                         if not R[u].union([a.lhs.lhs]).issubset(R[v]):
                             R[v] = R[v].union(R[u].union([a.lhs.lhs]))
                             updated = True
+            else:
+                if not R[u].issubset(R[v]):
+                    R[v] = R[u]
+                    updated = True
 
             return updated
 
         return update_fn_impl
-
-    def fv(self, u, v):
-        uv = self.cfg.edges[u, v]
-        a = uv['action']
-
-        def fv_aux(a):
-            fv = set()
-
-            if isinstance(a, UCIdentifier):
-                fv.add(a)
-            elif isinstance(a, UCArrayDeref):
-                fv.add(a.lhs)
-                fv = fv.union(fv_aux(a.rhs))
-            elif isinstance(a, UCRecordDeref):
-                fv.add(a.lhs)
-            else:
-                for a_ in a.children:
-                    fv = fv.union(fv_aux(a_))
-
-            return fv
-
-        if isinstance(a, UCAssignment):
-            if isinstance(a.lhs, UCArrayDeref):
-                return set.union(fv_aux(a.lhs.rhs), fv_aux(a.rhs))
-            else:
-                return fv_aux(a.rhs)
-        elif isinstance(a, UCIf) or isinstance(a, UCIfElse) or isinstance(a, UCWhile):
-            return fv_aux(a.b_expr)
-        else:
-            return set()
 
     def compute(self, copy=False):
         dv = {}
 
         # DV=RD for the initial assignment
         rd = UCReachingDefs(self.cfg)
-        rd = rd.compute(copy=True)
+        rd.compute()
 
         # Lift the assignment to the correct analysis domain
         # and only add initial definitions
-        for q, rds in rd.items():
+        for q, rds in rd.asgn.items():
             dv[q] = set()
     
             for rd_ in rds:
@@ -373,7 +369,7 @@ class UCDangerousVars(UCAnalysis):
 
         # Compute the MOP solution for DV assignments
         ucw = UCWorklist(self.cfg, self.update_fn, dv, strategy=UCLIFOStrategy)
-        self.iters = ucw.compute()
+        self.iters = rd.iters + ucw.compute()
 
         if copy:
             return dv

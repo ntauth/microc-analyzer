@@ -12,7 +12,7 @@ class UCUnOp(UCASTNode):
     def __str__(self):
         return f'({self.op} {self.opr})'
 
-class UCExprUnOp(UCExpression):
+class UCExprUnOp(UCBExpression):
     """Micro-C Expression Unary Op"""
     def __init__(self, op, opr):
         super().__init__(op, [opr])
@@ -41,6 +41,17 @@ class UCBinOp(UCStatement):
 
 class UCExprBinOp(UCExpression):
     """Micro-C Expression Binary Op"""
+    def __init__(self, op, lhs, rhs):
+        super().__init__(op, [lhs, rhs])
+        self.op = op
+        self.lhs = lhs
+        self.rhs = rhs
+    
+    def __str__(self):
+        return f'({self.op} {self.lhs} {self.rhs})'
+
+class UCExprBinOp(UCBExpression):
+    """Micro-C Boolean Expression Binary Op"""
     def __init__(self, op, lhs, rhs):
         super().__init__(op, [lhs, rhs])
         self.op = op
