@@ -4,8 +4,6 @@ import math
 
 from itertools import product
 
-from networkx.algorithms.operators.all import union_all
-
 from lang.ops import *
 from utils.decorators import classproperty
 
