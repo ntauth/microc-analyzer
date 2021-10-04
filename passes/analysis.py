@@ -296,23 +296,23 @@ class UCDangerousVars(UCAnalysis):
                 if isinstance(a.lhs, UCIdentifier):
                     if fv.intersection(R[u]) == set():
                         if not R[u].difference([a.lhs]).issubset(R[v]):
-                            R[v] = R[v].union(R[u].difference(a.lhs))
+                            R[v] = R[v].union(R[u].difference([a.lhs]))
                             updated = True
                     else:
-                        if not R[u].union(a.lhs).issubset(R[v]):
-                            R[v] = R[v].union(R[u].union(a.lhs))
+                        if not R[u].union([a.lhs]).issubset(R[v]):
+                            R[v] = R[v].union(R[u].union([a.lhs]))
                             updated = True
                 # A[a1] := a2
                 elif isinstance(a.lhs, UCArrayDeref):
                     if fv.intersection(R[v]) != set():
-                        if not R[u].union(a.lhs.lhs).issubset(R[v]):
-                            R[v] = R[v].union(R[u].union(a.lhs.lhs))
+                        if not R[u].union([a.lhs.lhs]).issubset(R[v]):
+                            R[v] = R[v].union(R[u].union([a.lhs.lhs]))
                             updated = True
                 # R.fst := a
                 elif isinstance(a.lhs, UCRecordDeref):
                     if fv.intersection(R[v]) != set():
-                        if not R[u].union(a.lhs.lhs).issubset(R[v]):
-                            R[v] = R[v].union(R[u].union(a.lhs.lhs))
+                        if not R[u].union([a.lhs.lhs]).issubset(R[v]):
+                            R[v] = R[v].union(R[u].union([a.lhs.lhs]))
                             updated = True
 
             return updated
@@ -327,12 +327,12 @@ class UCDangerousVars(UCAnalysis):
             fv = set()
 
             if isinstance(a, UCIdentifier):
-                fv.add(self.cfg.vars[a])
+                fv.add(a)
             elif isinstance(a, UCArrayDeref):
-                fv.add(self.cfg.vars[a.lhs])
+                fv.add(a.lhs)
                 fv = fv.union(fv_aux(a.rhs))
             elif isinstance(a, UCRecordDeref):
-                fv.add(self.cfg.vars[a.lhs])
+                fv.add(a.lhs)
             else:
                 for a_ in a.children:
                     fv = fv.union(fv_aux(a_))
@@ -344,28 +344,10 @@ class UCDangerousVars(UCAnalysis):
                 return set.union(fv_aux(a.lhs.rhs), fv_aux(a.rhs))
             else:
                 return fv_aux(a.rhs)
+        elif isinstance(a, UCIf) or isinstance(a, UCIfElse) or isinstance(a, UCWhile):
+            return fv_aux(a.b_expr)
         else:
             return set()
-        # TODO: Boolean expressions
-        # elif isinstance(a, UCIf) or isinstance(a, UCIfElse) or isinstance(a, UCWhile):
-        #     return fv_aux(a.b_expr)
-
-    def _var(self, u, v):
-        uv = self.cfg.edges[u, v]
-        a = uv['action']
-        var = None
-
-        if isinstance(a, UCAssignment):
-            if isinstance(a.lhs, UCArrayDeref):
-                var_id = a.lhs.oprs[0]
-            elif isinstance(a.lhs, UCRecordDeref):
-                var_id = a.lhs.oprs[0]
-            else:
-                var_id = a.lhs
-
-            var = self.cfg.vars[var_id]
-
-        return var
 
     def compute(self, copy=False):
         dv = {}
@@ -375,11 +357,14 @@ class UCDangerousVars(UCAnalysis):
         rd = rd.compute(copy=True)
 
         # Lift the assignment to the correct analysis domain
+        # and only add initial definitions
         for q, rds in rd.items():
             dv[q] = set()
     
             for rd_ in rds:
-                dv[q].add(rd_[0])
+                # Is it an initial definition?
+                if rd_[1] == self.jolly_node:
+                    dv[q].add(rd_[0])
 
         # Debug free variables
         # TODO: Remove once sure that fv works as expected
