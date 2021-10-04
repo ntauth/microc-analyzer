@@ -156,9 +156,6 @@ class UCVariable(UCDeclaration):
         self._id = id
         self._value = value
 
-    def __str__(self):
-        return f'{self._id}'
-
     @property
     def type(self):
         return self._type
@@ -174,6 +171,12 @@ class UCVariable(UCDeclaration):
     @value.setter
     def value(self, value):
         self._value = value
+
+    def __str__(self):
+        return f'{self.id}'
+
+    def __hash__(self):
+        return hash(self.id)
 
 
 class UCField(UCASTNode):

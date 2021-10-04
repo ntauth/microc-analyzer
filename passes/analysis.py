@@ -59,6 +59,23 @@ class UCReachingDefs(UCAnalysis):
     def nodes_ex(self):
         return list(self.cfg.nodes) + [UCReachingDefs.jolly_node]
 
+    @property
+    def update_fn(self):
+        def update_fn_impl(R, u, v):
+            kill_uv = set(self.killset(u, v))
+            gen_uv = set(self.genset(u, v))
+
+            rd_u_not_kill_uv = R[u].difference(kill_uv)
+
+            if not rd_u_not_kill_uv.union(gen_uv).issubset(R[v]):
+                R[v] = R[v].union(
+                    rd_u_not_kill_uv).union(gen_uv)
+                return True
+
+            return False
+
+        return update_fn_impl
+
     def killset(self, u, v):
         uv = self.cfg.edges[u, v]
         a = uv['action']
@@ -120,8 +137,8 @@ class UCReachingDefs(UCAnalysis):
                                           [UCReachingDefs.jolly_node],
                                           [self.cfg.source]))
 
-        # Compute the MOP solution for RD assignments
-        ucw = UCWorklist(self.cfg, kill, gen, rd, strategy=UCLIFOStrategy)
+        # Compute the MFP solution for RD assignments
+        ucw = UCWorklist(self.cfg, self.update_fn, rd, strategy=UCLIFOStrategy)
         self.iters = ucw.compute()
 
         if copy:
@@ -162,6 +179,23 @@ class UCLiveVars(UCAnalysis):
                 return [var_id]
         else:
             return []
+
+    @property
+    def update_fn(self):
+        def update_fn_impl(R, u, v):
+            kill_uv = set(self.killset(u, v))
+            gen_uv = set(self.genset(u, v))
+
+            rd_u_not_kill_uv = R[u].difference(kill_uv)
+
+            if not rd_u_not_kill_uv.union(gen_uv).issubset(R[v]):
+                R[v] = R[v].union(
+                    rd_u_not_kill_uv).union(gen_uv)
+                return True
+
+            return False
+
+        return update_fn_impl
 
     def __genset(self, node, storage):
         if isinstance(node, UCRecordInitializerList):
@@ -219,7 +253,7 @@ class UCLiveVars(UCAnalysis):
             lv[q] = set()
 
         # Compute the MOP solution for LV assignments
-        ucw = UCWorklist(self.cfg, kill, gen, lv, strategy=UCRRStrategy)
+        ucw = UCWorklist(self.cfg, self.update_fn, lv, strategy=UCRRStrategy)
         self.iters = ucw.compute()
 
         # Sort LV assignment vales by identifier
@@ -248,9 +282,78 @@ class UCDangerousVars(UCAnalysis):
     def nodes_ex(self):
         return list(self.cfg.nodes) + [UCReachingDefs.jolly_node]
 
-    def killset(self, u, v):
+    @property
+    def update_fn(self):
+        def update_fn_impl(R, u, v):
+            uv = self.cfg.edges[u, v]
+            a = uv['action']
+            fv = set(self.fv(u, v))
+
+            updated = False
+
+            if isinstance(a, UCAssignment):
+                # x := a
+                if isinstance(a.lhs, UCIdentifier):
+                    if fv.intersection(R[u]) == set():
+                        if not R[u].difference([a.lhs]).issubset(R[v]):
+                            R[v] = R[v].union(R[u].difference(a.lhs))
+                            updated = True
+                    else:
+                        if not R[u].union(a.lhs).issubset(R[v]):
+                            R[v] = R[v].union(R[u].union(a.lhs))
+                            updated = True
+                # A[a1] := a2
+                elif isinstance(a.lhs, UCArrayDeref):
+                    if fv.intersection(R[v]) != set():
+                        if not R[u].union(a.lhs.lhs).issubset(R[v]):
+                            R[v] = R[v].union(R[u].union(a.lhs.lhs))
+                            updated = True
+                # R.fst := a
+                elif isinstance(a.lhs, UCRecordDeref):
+                    if fv.intersection(R[v]) != set():
+                        if not R[u].union(a.lhs.lhs).issubset(R[v]):
+                            R[v] = R[v].union(R[u].union(a.lhs.lhs))
+                            updated = True
+
+            return updated
+
+        return update_fn_impl
+
+    def fv(self, u, v):
         uv = self.cfg.edges[u, v]
         a = uv['action']
+
+        def fv_aux(a):
+            fv = set()
+
+            if isinstance(a, UCIdentifier):
+                fv.add(self.cfg.vars[a])
+            elif isinstance(a, UCArrayDeref):
+                fv.add(self.cfg.vars[a.lhs])
+                fv = fv.union(fv_aux(a.rhs))
+            elif isinstance(a, UCRecordDeref):
+                fv.add(self.cfg.vars[a.lhs])
+            else:
+                for a_ in a.children:
+                    fv = fv.union(fv_aux(a_))
+
+            return fv
+
+        if isinstance(a, UCAssignment):
+            if isinstance(a.lhs, UCArrayDeref):
+                return set.union(fv_aux(a.lhs.rhs), fv_aux(a.rhs))
+            else:
+                return fv_aux(a.rhs)
+        else:
+            return set()
+        # TODO: Boolean expressions
+        # elif isinstance(a, UCIf) or isinstance(a, UCIfElse) or isinstance(a, UCWhile):
+        #     return fv_aux(a.b_expr)
+
+    def _var(self, u, v):
+        uv = self.cfg.edges[u, v]
+        a = uv['action']
+        var = None
 
         if isinstance(a, UCAssignment):
             if isinstance(a.lhs, UCArrayDeref):
@@ -262,62 +365,35 @@ class UCDangerousVars(UCAnalysis):
 
             var = self.cfg.vars[var_id]
 
-            if isinstance(var, UCArray):
-                return []
-            elif isinstance(var, UCRecord):
-                return []
-            else:
-                return product([var_id], self.nodes_ex, self.cfg.nodes)
-        else:
-            return []
-
-    def genset(self, u, v):
-        uv = self.cfg.edges[u, v]
-        a = uv['action']
-
-        if isinstance(a, UCAssignment):
-            if isinstance(a.lhs, UCArrayDeref):
-                var_id = a.lhs.oprs[0]
-            elif isinstance(a.lhs, UCRecordDeref):
-                var_id = a.lhs.oprs[0]
-            else:
-                var_id = a.lhs
-
-            var = self.cfg.vars[var_id]
-
-            if isinstance(var, UCVariable):
-                return [(var_id, u, v,)]
-        else:
-            return []
+        return var
 
     def compute(self, copy=False):
-        kill = {}
-        gen = {}
-        rd = {}
+        dv = {}
 
-        # Compute kill- and gensets
-        for u, v in self.cfg.edges:
-            kill[(u, v,)] = set(self.killset(u, v))
-            gen[(u, v,)] = set(self.genset(u, v))
+        # DV=RD for the initial assignment
+        rd = UCReachingDefs(self.cfg)
+        rd = rd.compute(copy=True)
 
-        # Compute initial RD assignments
-        for q in self.cfg.nodes:
-            if q != self.cfg.source:
-                rd[q] = set()
+        # Lift the assignment to the correct analysis domain
+        for q, rds in rd.items():
+            dv[q] = set()
+    
+            for rd_ in rds:
+                dv[q].add(rd_[0])
 
-        rd[self.cfg.source] = set(product(self.cfg.vars,
-                                          [UCReachingDefs.jolly_node],
-                                          [self.cfg.source]))
+        # Debug free variables
+        # TODO: Remove once sure that fv works as expected
+        # for u, v in self.cfg.edges:
+        #     print(f'{u}, {v}: {list(map(lambda v: str(v.id), self.fv(u, v)))}')
 
-        # Compute the MOP solution for RD assignments
-        ucw = UCWorklist(self.cfg, kill, gen, rd, strategy=UCLIFOStrategy)
-        self.iters = ucw.compute(op=set.intersection)
+        # Compute the MOP solution for DV assignments
+        ucw = UCWorklist(self.cfg, self.update_fn, dv, strategy=UCLIFOStrategy)
+        self.iters = ucw.compute()
 
         if copy:
-            return rd
+            return dv
 
-        self.asgn = rd
+        self.asgn = dv
 
     def __str__(self):
-        return super().__str__(
-            'DR', lambda asgn: f'({str(asgn[0])}, {asgn[1]}, {asgn[2]})')
+        return super().__str__('DV', lambda dv: f'{str(dv)}')

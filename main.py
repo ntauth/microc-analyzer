@@ -42,10 +42,12 @@ def main():
         # Print LV assignments
         print(lv)
 
-        # dangerous vars analysis
-        dr = UCDangerousVars(cfg)
-        dr.compute()
-        print(dr)
+        # DV analysis
+        dv = UCDangerousVars(cfg)
+        dv.compute()
+
+        # Print DV assignments
+        print(dv)
 
 
 if __name__ == "__main__":
