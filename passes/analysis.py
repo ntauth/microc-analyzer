@@ -224,7 +224,7 @@ class UCLiveVars(UCAnalysis):
 
         # Sort LV assignment vales by identifier
         lv = {k: sorted(v, key=lambda v: str(v)) for k, v in lv.items()}
-        
+
         if copy:
             return lv
 
@@ -232,3 +232,92 @@ class UCLiveVars(UCAnalysis):
 
     def __str__(self):
         return super().__str__('LV', lambda asgn: f'{str(asgn)}', forward=False)
+
+
+class UCDangerousVars(UCAnalysis):
+    """UC Dangerous Vars"""
+
+    def __init__(self, cfg):
+        super().__init__(cfg)
+
+    @classproperty
+    def jolly_node(cls):
+        return '?'
+
+    @property
+    def nodes_ex(self):
+        return list(self.cfg.nodes) + [UCReachingDefs.jolly_node]
+
+    def killset(self, u, v):
+        uv = self.cfg.edges[u, v]
+        a = uv['action']
+
+        if isinstance(a, UCAssignment):
+            if isinstance(a.lhs, UCArrayDeref):
+                var_id = a.lhs.oprs[0]
+            elif isinstance(a.lhs, UCRecordDeref):
+                var_id = a.lhs.oprs[0]
+            else:
+                var_id = a.lhs
+
+            var = self.cfg.vars[var_id]
+
+            if isinstance(var, UCArray):
+                return []
+            elif isinstance(var, UCRecord):
+                return []
+            else:
+                return product([var_id], self.nodes_ex, self.cfg.nodes)
+        else:
+            return []
+
+    def genset(self, u, v):
+        uv = self.cfg.edges[u, v]
+        a = uv['action']
+
+        if isinstance(a, UCAssignment):
+            if isinstance(a.lhs, UCArrayDeref):
+                var_id = a.lhs.oprs[0]
+            elif isinstance(a.lhs, UCRecordDeref):
+                var_id = a.lhs.oprs[0]
+            else:
+                var_id = a.lhs
+
+            var = self.cfg.vars[var_id]
+
+            if isinstance(var, UCVariable):
+                return [(var_id, u, v,)]
+        else:
+            return []
+
+    def compute(self, copy=False):
+        kill = {}
+        gen = {}
+        rd = {}
+
+        # Compute kill- and gensets
+        for u, v in self.cfg.edges:
+            kill[(u, v,)] = set(self.killset(u, v))
+            gen[(u, v,)] = set(self.genset(u, v))
+
+        # Compute initial RD assignments
+        for q in self.cfg.nodes:
+            if q != self.cfg.source:
+                rd[q] = set()
+
+        rd[self.cfg.source] = set(product(self.cfg.vars,
+                                          [UCReachingDefs.jolly_node],
+                                          [self.cfg.source]))
+
+        # Compute the MOP solution for RD assignments
+        ucw = UCWorklist(self.cfg, kill, gen, rd, strategy=UCLIFOStrategy)
+        self.iters = ucw.compute(op=set.intersection)
+
+        if copy:
+            return rd
+
+        self.asgn = rd
+
+    def __str__(self):
+        return super().__str__(
+            'DR', lambda asgn: f'({str(asgn[0])}, {asgn[1]}, {asgn[2]})')
