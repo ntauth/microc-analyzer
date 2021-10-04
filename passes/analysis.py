@@ -120,7 +120,7 @@ class UCReachingDefs(UCAnalysis):
                                           [UCReachingDefs.jolly_node],
                                           [self.cfg.source]))
 
-        # Compute the MOP solution for RD assignments
+        # Compute the MFP solution for RD assignments
         ucw = UCWorklist(self.cfg, kill, gen, rd, strategy=UCLIFOStrategy)
         self.iters = ucw.compute()
 
