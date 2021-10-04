@@ -8,6 +8,8 @@ pip install requirements.txt
 ## Usage
 ```bash
 python main.py --src-file test/test.uc
+
+python main.py --src-file test/factorial.uc
 ```
 
 ## Resources
