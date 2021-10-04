@@ -356,7 +356,7 @@ class UCDangerousVars(UCAnalysis):
         # and only add initial definitions
         for q, rds in rd.asgn.items():
             dv[q] = set()
-    
+
             for rd_ in rds:
                 # Is it an initial definition?
                 if rd_[1] == self.jolly_node:
@@ -378,3 +378,20 @@ class UCDangerousVars(UCAnalysis):
 
     def __str__(self):
         return super().__str__('DV', lambda dv: f'{str(dv)}')
+
+
+def fv_aux(a):
+    fv = set()
+
+    if isinstance(a, UCIdentifier):
+        fv.add(a)
+    elif isinstance(a, UCArrayDeref):
+        fv.add(a.lhs)
+        fv = fv.union(fv_aux(a.rhs))
+    elif isinstance(a, UCRecordDeref):
+        fv.add(a.lhs)
+    else:
+        for a_ in a.children:
+            fv = fv.union(fv_aux(a_))
+
+    return fv
