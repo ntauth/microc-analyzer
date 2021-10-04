@@ -80,7 +80,7 @@ class UCWorklist:
     def extract(self):
         return self.strategy.extract()
 
-    def compute(self):
+    def compute(self, op=lambda x, y: set.union(x, y)):
         iters = 0
 
         while self != UCWorklist.empty:
@@ -95,13 +95,14 @@ class UCWorklist:
 
                 rd_u_not_kill_uv = self.asgn[u].difference(kill_uv)
 
-                if not rd_u_not_kill_uv.union(gen_uv).issubset(self.asgn[v]):
-                    self.asgn[v] = self.asgn[v].union(
-                        rd_u_not_kill_uv).union(gen_uv)
+                r1 = op(rd_u_not_kill_uv, gen_uv)
+
+                if not r1.issubset(self.asgn[v]):
+                    self.asgn[v] = self.asgn[v].union(r1)
                     insert_set.add(v)
 
             apply(self.insert, insert_set)
-            
+
             iters += 1
 
         return iters
