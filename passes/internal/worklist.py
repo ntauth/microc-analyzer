@@ -60,19 +60,18 @@ class UCLIFOStrategy(UCWorklistStrategy):
 class UCWorklist:
     """Worklist Algorithm"""
 
-    def __init__(self, cfg, kill, gen, asgn, strategy=UCRRStrategy):
+    def __init__(self, cfg, update_fn, r, strategy=UCRRStrategy):
         self.cfg = cfg
         self.worklist = list(nx.dfs_preorder_nodes(cfg, source=cfg.source))\
             if cfg.source is not None\
             else []
-        self.kill = kill
-        self.gen = gen
-        self.asgn = asgn
+        self.update_fn = update_fn
+        self.r = r
         self.strategy = strategy(self)
 
     @classproperty
     def empty(cls):
-        return UCWorklist(UCProgramGraph.empty, set(), set(), dict())
+        return UCWorklist(UCProgramGraph.empty, lambda _: set(), dict())
 
     def insert(self, x):
         self.strategy.insert(x)
@@ -90,14 +89,7 @@ class UCWorklist:
             u_post = self.cfg.successors(u)
 
             for v in u_post:
-                kill_uv = self.kill[(u, v,)]
-                gen_uv = self.gen[(u, v,)]
-
-                rd_u_not_kill_uv = self.asgn[u].difference(kill_uv)
-
-                if not rd_u_not_kill_uv.union(gen_uv).issubset(self.asgn[v]):
-                    self.asgn[v] = self.asgn[v].union(
-                        rd_u_not_kill_uv).union(gen_uv)
+                if self.update_fn(self.r, u, v):
                     insert_set.add(v)
 
             apply(self.insert, insert_set)

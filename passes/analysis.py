@@ -59,6 +59,23 @@ class UCReachingDefs(UCAnalysis):
     def nodes_ex(self):
         return list(self.cfg.nodes) + [UCReachingDefs.jolly_node]
 
+    @property
+    def update_fn(self):
+        def update_fn_impl(R, u, v):
+            kill_uv = set(self.killset(u, v))
+            gen_uv = set(self.genset(u, v))
+
+            rd_u_not_kill_uv = R[u].difference(kill_uv)
+
+            if not rd_u_not_kill_uv.union(gen_uv).issubset(R[v]):
+                R[v] = R[v].union(
+                    rd_u_not_kill_uv).union(gen_uv)
+                return True
+
+            return False
+
+        return update_fn_impl
+
     def killset(self, u, v):
         uv = self.cfg.edges[u, v]
         a = uv['action']
@@ -121,7 +138,7 @@ class UCReachingDefs(UCAnalysis):
                                           [self.cfg.source]))
 
         # Compute the MFP solution for RD assignments
-        ucw = UCWorklist(self.cfg, kill, gen, rd, strategy=UCLIFOStrategy)
+        ucw = UCWorklist(self.cfg, self.update_fn, rd, strategy=UCLIFOStrategy)
         self.iters = ucw.compute()
 
         if copy:
@@ -162,6 +179,23 @@ class UCLiveVars(UCAnalysis):
                 return [var_id]
         else:
             return []
+
+    @property
+    def update_fn(self):
+        def update_fn_impl(R, u, v):
+            kill_uv = set(self.killset(u, v))
+            gen_uv = set(self.genset(u, v))
+
+            rd_u_not_kill_uv = R[u].difference(kill_uv)
+
+            if not rd_u_not_kill_uv.union(gen_uv).issubset(R[v]):
+                R[v] = R[v].union(
+                    rd_u_not_kill_uv).union(gen_uv)
+                return True
+
+            return False
+
+        return update_fn_impl
 
     def __genset(self, node, storage):
         if isinstance(node, UCRecordInitializerList):
@@ -219,7 +253,7 @@ class UCLiveVars(UCAnalysis):
             lv[q] = set()
 
         # Compute the MOP solution for LV assignments
-        ucw = UCWorklist(self.cfg, kill, gen, lv, strategy=UCRRStrategy)
+        ucw = UCWorklist(self.cfg, self.update_fn, lv, strategy=UCRRStrategy)
         self.iters = ucw.compute()
 
         # Sort LV assignment vales by identifier
