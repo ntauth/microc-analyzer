@@ -12,7 +12,7 @@ class UCUnOp(UCASTNode):
     def __str__(self):
         return f'({self.op} {self.opr})'
 
-class UCExprUnOp(UCExpression):
+class UCExprUnOp(UCBExpression):
     """Micro-C Expression Unary Op"""
     def __init__(self, op, opr):
         super().__init__(op, [opr])
@@ -26,6 +26,7 @@ class UCNot(UCExprUnOp):
     """Micro-C Not Op"""
     def __init__(self, opr):
         super().__init__('!', opr)
+        self.opr = opr
 
 # TODO: Make abstract and nest concrete op classes inside it
 class UCBinOp(UCStatement):
@@ -39,8 +40,8 @@ class UCBinOp(UCStatement):
     def __str__(self):
         return f'({self.op} {self.lhs} {self.rhs})'
 
-class UCExprBinOp(UCExpression):
-    """Micro-C Expression Binary Op"""
+class UCAExprBinOp(UCAExpression):
+    """Micro-C Arithmetic Expression Binary Op"""
     def __init__(self, op, lhs, rhs):
         super().__init__(op, [lhs, rhs])
         self.op = op
@@ -50,17 +51,28 @@ class UCExprBinOp(UCExpression):
     def __str__(self):
         return f'({self.op} {self.lhs} {self.rhs})'
 
-class UCABinOp(UCExprBinOp):
+class UCBExprBinOp(UCBExpression):
+    """Micro-C Boolean Expression Binary Op"""
+    def __init__(self, op, lhs, rhs):
+        super().__init__(op, [lhs, rhs])
+        self.op = op
+        self.lhs = lhs
+        self.rhs = rhs
+    
+    def __str__(self):
+        return f'({self.op} {self.lhs} {self.rhs})'
+
+class UCABinOp(UCAExprBinOp):
     """Micro-C Arithmetic Binary Op"""
     def __init__(self, op, lhs, rhs):
         super().__init__(op, lhs, rhs)
 
-class UCBBinOp(UCExprBinOp):
+class UCBBinOp(UCBExprBinOp):
     """Micro-C Boolean Binary Op"""
     def __init__(self, op, lhs, rhs):
         super().__init__(op, lhs, rhs)
 
-class UCRBinOp(UCExprBinOp):
+class UCRBinOp(UCBExprBinOp):
     """Micro-C Relational Binary Op"""
     def __init__(self, op, lhs, rhs):
         super().__init__(op, lhs, rhs)

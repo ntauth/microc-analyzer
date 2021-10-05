@@ -254,7 +254,7 @@ class UCBuiltinIdentifier(UCASTNode):
         return self.id
 
 
-class UCNumberLiteral(UCLExpression):
+class UCNumberLiteral(UCAExpression):
     """Micro-C Number Literal"""
 
     def __init__(self, value):

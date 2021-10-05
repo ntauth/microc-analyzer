@@ -42,5 +42,12 @@ def main():
         # Print LV assignments
         print(lv)
 
+        # DS analysis
+        ds = UCDetectionSigns(cfg)
+        ds.compute()
+
+        # Print DS assignments
+        print(ds)
+
 if __name__ == "__main__":
     main()
