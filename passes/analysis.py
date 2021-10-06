@@ -68,12 +68,12 @@ class UCAnalysis:
             if kv[0] not in [self.cfg.source, self.cfg.sink]\
             else (source_key if kv[0] == self.cfg.source else sink_key)
 
-        for q, aas in sorted(self.aa.items(), key=sort_pred):
+        for q, aa_ in sorted(self.aa.items(), key=sort_pred):
             s += f'{pfx}({q}): '
 
-            if len(aas) > 0:
-                for aa in aas.items() if isinstance(aas, dict) else aas:
-                    s += fmt(aa) + ', '
+            if len(aa_) > 0:
+                for ae in aa_.items() if isinstance(aa_, dict) else aa_:
+                    s += fmt(ae) + ', '
             else:
                 s += '∅'
 
@@ -720,7 +720,7 @@ class UCDetectionSigns(UCAnalysis):
 
         # Define the initial abstract memory
         mem = self.initial_mem
-        # mem[UCIdentifier('n')] = set(['+'])
+        mem[UCIdentifier('n')] = set(['+'])
 
         # Define the initial DS assignment
         for q in self.cfg.nodes:
@@ -736,7 +736,7 @@ class UCDetectionSigns(UCAnalysis):
         if copy:
             return ds
 
-        self.asgn = ds
+        self.aa = ds
 
     def __str__(self):
         return super().__str__('DS', lambda ds: f'{ds[0]}: {ds[1]}')
