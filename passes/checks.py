@@ -25,7 +25,7 @@ def check_semantics(lineno, value):
                 errors.append((lineno, 'a record must be initialized using UCRecordInitializerList'))
 
             # check if there is a nested UCRecordInitializerList, which is not allowed
-            elif True in [isinstance(value, UCRecordInitializerList) for value in rvalue.values]:
+            elif True in [isinstance(value, UCRecordInitializerList) for value in rvalue.value]:
                 errors.append((lineno, 'UCRecordInitializerList cannot contain itself'))
 
         elif isinstance(variable, UCArray):
@@ -48,8 +48,8 @@ def check_semantics(lineno, value):
 
 def __check_rvalue(lineno, rvalue):
     if isinstance(rvalue, UCRecordInitializerList):
-        __check_rvalue(lineno, rvalue.values[0])
-        __check_rvalue(lineno, rvalue.values[1])
+        __check_rvalue(lineno, rvalue.value[0])
+        __check_rvalue(lineno, rvalue.value[1])
     elif isinstance(rvalue, UCRecordDeref):
         if not isinstance(declarations[rvalue.lhs.id], UCRecord):
             errors.append((lineno, '`{}` is not a record'.format(rvalue.lhs.id)))

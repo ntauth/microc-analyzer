@@ -62,6 +62,17 @@ class UCBExprBinOp(UCBExpression):
     def __str__(self):
         return f'({self.op} {self.lhs} {self.rhs})'
 
+class UCRExprBinOp(UCRExpression):
+    """Micro-C Relational Expression Binary Op"""
+    def __init__(self, op, lhs, rhs):
+        super().__init__(op, [lhs, rhs])
+        self.op = op
+        self.lhs = lhs
+        self.rhs = rhs
+    
+    def __str__(self):
+        return f'({self.op} {self.lhs} {self.rhs})'
+
 class UCABinOp(UCAExprBinOp):
     """Micro-C Arithmetic Binary Op"""
     def __init__(self, op, lhs, rhs):
@@ -72,7 +83,7 @@ class UCBBinOp(UCBExprBinOp):
     def __init__(self, op, lhs, rhs):
         super().__init__(op, lhs, rhs)
 
-class UCRBinOp(UCBExprBinOp):
+class UCRBinOp(UCRExprBinOp):
     """Micro-C Relational Binary Op"""
     def __init__(self, op, lhs, rhs):
         super().__init__(op, lhs, rhs)

@@ -135,16 +135,27 @@ class UCBExpression(UCExpression):
         super().__init__(op, oprs)
 
 
-class UCRecordInitializerList(UCASTNode):
+class UCRExpression(UCExpression):
+    """Micro-C Relational Expression"""
+
+    def __init__(self, op, oprs=None):
+        super().__init__(op, oprs)
+
+
+class UCRecordInitializerList(UCAExpression):
     """Micro-C Record Initializer List"""
 
     def __init__(self, values):
         super().__init__(None, values)
-        self.values = values
+        self._values = values
 
     def __str__(self):
-        s = ', '.join(list(map(str, self.values)))
+        s = ', '.join(list(map(str, self._values)))
         return f'({s})'
+
+    @property
+    def value(self):
+        return self._values
 
 
 class UCVariable(UCDeclaration):
@@ -154,7 +165,8 @@ class UCVariable(UCDeclaration):
         super().__init__(f'{id}')
         self._type = type
         self._id = id
-        self._value = value
+        self._value = UCNumberLiteral(value)\
+            if not isinstance(value, UCNumberLiteral) else value
 
     def __str__(self):
         return f'{self._id}'
@@ -183,7 +195,8 @@ class UCField(UCASTNode):
         super().__init__(f'{id}')
         self._type = type
         self._id = id
-        self._value = value
+        self._value = UCNumberLiteral(value)\
+            if not isinstance(value, UCNumberLiteral) else value
 
     def __str__(self):
         return f'{self._id}'
@@ -211,8 +224,10 @@ class UCRecord(UCVariable):
     def __init__(self, type, id, fields=None):
         super().__init__(type, id, fields)
 
-        if fields == None:
+        if fields is not None:
             self.fields = fields
+        else:
+            self.fields = set()
 
     def __str__(self):
         return f'{self._id}'
@@ -223,7 +238,17 @@ class UCArray(UCVariable):
 
     def __init__(self, type, id, size, values=None):
         super().__init__(type, id, values)
-        self.size = size
+
+        if size.value <= 0:
+            raise ValueError("size must be positive")
+
+        self.size = size.value
+        self.value = [UCNumberLiteral(0)] * self.size
+
+        if values is not None:
+            for i in range(len(values)):
+                self.value[i] = values[i]\
+                    if not isinstance(values[i], UCNumberLiteral) else values[i]
 
     def __str__(self):
         return f'{self.type}[{self.size}] {self.id}'
@@ -242,6 +267,12 @@ class UCIdentifier(UCAExpression):
     def __hash__(self):
         return hash(self.id)
 
+    def __eq__(self, other):
+        if not isinstance(other, UCIdentifier):
+            return False
+        
+        return self.id == other.id
+
 
 class UCBuiltinIdentifier(UCASTNode):
     """Micro-C Built-in Identifier"""
@@ -252,6 +283,15 @@ class UCBuiltinIdentifier(UCASTNode):
 
     def __str__(self):
         return self.id
+
+    def __hash__(self):
+        return hash(self.id)
+
+    def __eq__(self, other):
+        if not isinstance(other, UCBuiltinIdentifier):
+            return False
+        
+        return self.id == other.id
 
 
 class UCNumberLiteral(UCAExpression):

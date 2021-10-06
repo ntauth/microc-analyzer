@@ -3,8 +3,7 @@
 import math
 
 from itertools import product
-
-from networkx.algorithms.operators.all import union_all
+from functools import reduce
 
 from lang.ops import *
 from utils.decorators import classproperty
@@ -199,8 +198,8 @@ class UCLiveVars(UCAnalysis):
 
     def __genset(self, node, storage):
         if isinstance(node, UCRecordInitializerList):
-            self.__genset(node.values[0], storage)
-            self.__genset(node.values[1], storage)
+            self.__genset(node.value[0], storage)
+            self.__genset(node.value[1], storage)
         elif isinstance(node, UCArrayDeref):
             storage.append(node.lhs)
             self.__genset(node.rhs, storage)
@@ -288,7 +287,22 @@ class UCDetectionSigns(UCAnalysis):
 
     @property
     def initial_mem(self):
-        return { id: set([str(var.value)]) for id, var in self.cfg.vars.items() }
+        def to_abstract(var):
+            if isinstance(var, UCRecord):
+                return set(
+                    reduce(set.union, list(
+                        map(lambda f: self.get_sign({}, f.value), var.fields)), set())
+                )
+            elif isinstance(var, UCArray):
+                return set(
+                    reduce(set.union, list(
+                        map(lambda v: self.get_sign({}, v), var.value)), set())
+                )
+            else:
+                return self.get_sign({}, var.value)
+
+        return { id: to_abstract(var) for id, var in self.cfg.vars.items() }
+
 
     @property
     def empty_mem(self):
@@ -312,10 +326,20 @@ class UCDetectionSigns(UCAnalysis):
                         sign.add('0')
                     else:
                         sign.add('+')
+                elif isinstance(a, UCRecordInitializerList):
+                    sign = set(
+                        reduce(set.union, list(
+                            map(lambda v: get_sign_aux(mem, v), a.value)), set())
+                    )
                 elif isinstance(a, UCIdentifier):
                     sign = sign.union(mem[a])
                 elif isinstance(a, UCArrayDeref):
-                    sign = sign.union(mem[a.lhs])
+                    sign_rhs = get_sign_aux(mem, a.rhs)
+
+                    if sign_rhs.intersection(['0', '+']) != set():
+                        sign = sign.union(mem[a.lhs])
+                    else:
+                        sign = self.empty_mem
                 elif isinstance(a, UCRecordDeref):
                     sign = sign.union(mem[a.lhs])
                 elif isinstance(a, UCAdd):
@@ -377,7 +401,7 @@ class UCDetectionSigns(UCAnalysis):
                                     s1 == '+' and s2 == '+':
                                 sign.add('+')
                             elif s2 == '0':
-                                sign = set() # TODO: Error condition
+                                sign = self.empty_mem # TODO: Error condition
                             else:
                                 sign.add('0')
                 elif isinstance(a, UCMod):
@@ -393,23 +417,53 @@ class UCDetectionSigns(UCAnalysis):
                             elif s2 == '-':
                                 sign.add('-')
                             else: # s2 == '0'
-                                sign = set() # TODO: Error condition
+                                sign = self.empty_mem # TODO: Error condition
 
             return sign
 
         return get_sign_aux(mem, a)
 
     def get_bool(self, mem, a):
-        assert isinstance(a, UCBExpression)
+        assert isinstance(a, UCRExpression) or isinstance(a, UCBExpression)
 
         def get_bool_aux(mem, a):
             bool = set()
 
-            if isinstance(a, UCBoolLiteral):
-                bool.add('tt' if a.value == True else 'ff')
-            elif isinstance(a, UCNot):
-                bool = self.bool.difference(get_bool_aux(mem, a.opr))
-            elif isinstance(a, UCEq):
+            # UCBExpressions
+            if isinstance(a, UCBExpression):
+                if isinstance(a, UCBoolLiteral):
+                    bool.add('tt' if a.value == True else 'ff')
+                elif isinstance(a, UCNot):
+                    bool_opr = get_bool_aux(mem, a.opr)
+
+                    for b in bool_opr:
+                        if b == 'tt':
+                            bool.add('ff')
+                        else:
+                            bool.add('tt')
+                elif isinstance(a, UCAnd):
+                    bool_lhs = self.get_bool(mem, a.lhs)
+                    bool_rhs = self.get_bool(mem, a.rhs)
+
+                    for b1 in bool_lhs:
+                        for b2 in bool_rhs:
+                            if b1 == b2 and b1 == 'tt':
+                                bool.add('tt')
+                            else:
+                                bool.add('ff')
+                elif isinstance(a, UCOr):
+                    bool_lhs = self.get_bool(mem, a.lhs)
+                    bool_rhs = self.get_bool(mem, a.rhs)
+
+                    for b1 in bool_lhs:
+                        for b2 in bool_rhs:
+                            if b1 == 'tt' or b2 == 'tt':
+                                bool.add('tt')
+                            else:
+                                bool.add('ff')
+
+            # UCRExpressions
+            if isinstance(a, UCEq):
                 sign_lhs = self.get_sign(mem, a.lhs)
                 sign_rhs = self.get_sign(mem, a.rhs)
 
@@ -518,27 +572,29 @@ class UCDetectionSigns(UCAnalysis):
 
             if isinstance(a, UCAssignment):
                 var, sign = a.lhs, self.get_sign(R[u], a.rhs)
-                # ru1 = self.__aa_union(R[u], { var: sign })
+
+                if isinstance(var, UCArrayDeref):
+                    var = var.lhs
+                elif isinstance(var, UCRecordDeref):
+                    var = var.lhs
 
                 if R[u] != self.empty_mem:
-                    ru1 = R[u].copy() # Note that this is a shallow copy
+                    ru1 = R[u].copy()
                     ru1[var] = sign
                 else:
                     ru1 = self.empty_mem
 
-                # print(f'{u}, {v}')
                 if not self.__aa_issubset(ru1, R[v]):
                     R[v] = self.__aa_union(ru1, R[v])
                     return True
-            elif isinstance(a, UCBExpression):
+            elif isinstance(a, UCRExpression) or isinstance(a, UCBExpression):
                 bool = self.get_bool(R[u], a)
 
                 if 'tt' in bool:
-                    ru1 = R[u].copy() # Note that this is a shallow copy
+                    ru1 = R[u].copy()
                 else:
                     ru1 = self.empty_mem
 
-                # print(f'{u}, {v} ({bool}) - {ru1} - {R[v]}')
                 if not self.__aa_issubset(ru1, R[v]):
                     R[v] = self.__aa_union(ru1, R[v])
                     return True
@@ -552,6 +608,7 @@ class UCDetectionSigns(UCAnalysis):
 
         # Define the initial abstract memory
         mem = self.initial_mem
+        # mem[UCIdentifier('n')] = set(['+'])
 
         # Define the initial DS assignment
         for q in self.cfg.nodes:
@@ -559,14 +616,6 @@ class UCDetectionSigns(UCAnalysis):
 
         # Define the initial DS assignment for the source node
         ds[self.cfg.source] = mem
-
-        # for u, v in self.cfg.edges:
-        #     sign = self.sign(mem, u, v)
-        #     uv = self.cfg.edges[u, v]
-        #     a = uv['action']
-
-        #     if isinstance(a, UCAssignment):
-        #         print(f'{u}, {v} [{a.lhs.id}]: {sign}')
 
         # Compute the MFP solution for DS assignments
         ucw = UCWorklist(self.cfg, self.update_fn, ds, strategy=UCLIFOStrategy)
