@@ -60,12 +60,12 @@ class UCLIFOStrategy(UCWorklistStrategy):
 class UCWorklist:
     """Worklist Algorithm"""
 
-    def __init__(self, cfg, update_fn, r, strategy=UCRRStrategy):
+    def __init__(self, cfg, af, r, strategy=UCRRStrategy):
         self.cfg = cfg
         self.worklist = list(nx.dfs_preorder_nodes(cfg, source=cfg.source))\
             if cfg.source is not None\
             else []
-        self.update_fn = update_fn
+        self.af = af
         self.r = r
         self.strategy = strategy(self)
 
@@ -83,17 +83,17 @@ class UCWorklist:
         iters = 0
 
         while self != UCWorklist.empty:
-            insert_set = set()
+            w_update_set = set()
 
             u = self.extract()
             u_post = self.cfg.successors(u)
 
             for v in u_post:
-                if self.update_fn(self.r, u, v):
-                    insert_set.add(v)
+                if self.af(self.r, u, v):
+                    w_update_set.add(v)
 
-            apply(self.insert, insert_set)
-            
+            apply(self.insert, w_update_set)
+
             iters += 1
 
         return iters

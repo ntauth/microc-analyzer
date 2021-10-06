@@ -73,6 +73,17 @@ class UCRExprBinOp(UCRExpression):
     def __str__(self):
         return f'({self.op} {self.lhs} {self.rhs})'
 
+class UCExprBinOp(UCBExpression):
+    """Micro-C Boolean Expression Binary Op"""
+    def __init__(self, op, lhs, rhs):
+        super().__init__(op, [lhs, rhs])
+        self.op = op
+        self.lhs = lhs
+        self.rhs = rhs
+    
+    def __str__(self):
+        return f'({self.op} {self.lhs} {self.rhs})'
+
 class UCABinOp(UCAExprBinOp):
     """Micro-C Arithmetic Binary Op"""
     def __init__(self, op, lhs, rhs):

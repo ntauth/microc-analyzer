@@ -42,6 +42,13 @@ def main():
         # Print LV assignments
         print(lv)
 
+        # DV analysis
+        dv = UCDangerousVars(cfg)
+        dv.compute()
+
+        # Print DV assignments
+        print(dv)
+
         # DS analysis
         ds = UCDetectionSigns(cfg)
         ds.compute()
