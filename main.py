@@ -18,6 +18,8 @@ def main():
 
         # AST
         ast = parse(src)
+
+        print('UCASTNode (Abstract Syntax Tree) generated.\n')
         print(ast)
 
         # CFG (Program Graph)
@@ -26,6 +28,8 @@ def main():
 
         # Draw CFG
         cfg.draw(args['src_file'])
+
+        print('UCProgramGraph generated.\n')
         print(cfg)
 
         # RD analysis

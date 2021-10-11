@@ -2,7 +2,7 @@
 
 import math
 
-from itertools import product, combinations
+from itertools import product
 from functools import reduce
 
 from lang.ops import *
@@ -398,30 +398,36 @@ class UCDetectionSigns(UCAnalysis):
 
     def __to_basic_mem(self, mem):
         basic_mems = list()
+        mem_, mem_am_ = dict(), dict() # Amalgamated and non- abstract memories
 
-        # signs = []
+        # Split the abstract memory based on whether the variable type is
+        # amalgamated or not
+        for var_id, sign in mem.items():
+            var = self.cfg.vars[var_id]
 
-        # for var_id, sign in mem.items():
-        #     var = self.cfg.vars[var_id]
+            if isinstance(var, UCArray) or isinstance(var, UCRecord):
+                if var_id not in mem_am_:
+                    mem_am_[var_id] = set()
+                mem_am_[var_id] = mem_am_[var_id].union(mem[var_id])
+            else:
+                if var_id not in mem_:
+                    mem_[var_id] = set()
+                mem_[var_id] = mem_[var_id].union(mem[var_id])
 
-        #     if not (isinstance(var, UCArray) or isinstance(var, UCRecord)):
-        #         basic_mem[var_id] = mem[var_id]
-
-        sign_product = list(product(*mem.values()))
+        sign_product = list(product(*mem_.values()))
 
         for signs in sign_product:
             basic_mem = {}
 
-            for var_id, sign in zip(mem.keys(), signs):
+            for var_id, sign in zip(mem_.keys(), signs):
                 var = self.cfg.vars[var_id]
-
-                if isinstance(var, UCArray) or isinstance(var, UCRecord):
-                    # Arrays and records are amalgamated
-                    basic_mem[var_id] = mem[var_id]
-                else:
-                    basic_mem[var_id] = set([sign])
+                basic_mem[var_id] = set([sign])
 
             basic_mems.append(basic_mem)
+
+        # Merge amalgamated and non- basic memories
+        for i in range(len(basic_mems)):
+            basic_mems[i] = self.__aa_union(basic_mems[i], mem_am_)
 
         return basic_mems
 
@@ -432,20 +438,6 @@ class UCDetectionSigns(UCAnalysis):
     @property
     def empty_mem(self):
         return { id: set() for id, _ in self.cfg.vars.items() }
-
-    # def __get_var_id(self, a):
-    #     if isinstance(a, UCArrayDeref) or isinstance(a, UCRecordDeref):
-    #         return a.lhs
-    #     elif isinstance(a, UCIdentifier):
-    #         return a
-    #     else:
-    #         raise TypeError(f'{a} is not an identifier or dereference expression')
-
-    # def __try_get_var_id(self, a):
-    #     try:
-    #         return self.__get_var_id(a)
-    #     except:
-    #         return None
 
     def get_sign(self, mem, a):
         assert isinstance(a, UCAExpression)
@@ -756,7 +748,7 @@ class UCDetectionSigns(UCAnalysis):
 
     def __aa_union(self, aa1, aa2):
         """Union extended for DS analysis domain"""
-        aa = aa1.copy() # Note that this is a shallow copy
+        aa = aa1.copy()
 
         for var, sign in aa2.items():
             if var not in aa:
@@ -767,7 +759,7 @@ class UCDetectionSigns(UCAnalysis):
 
     def __aa_intersection(self, aa1, aa2):
         """Intersection extended for DS analysis domain"""
-        aa = aa1.copy() # Note that this is a shallow copy
+        aa = aa1.copy()
 
         for var, sign in aa2.items():
             if var not in aa:
@@ -778,7 +770,7 @@ class UCDetectionSigns(UCAnalysis):
 
     def __aa_complement(self, aa):
         """Complement extended for DS analysis domain"""
-        aa_ = aa.copy() # Note that this is a shallow copy
+        aa_ = aa.copy()
 
         for var, sign in aa_.items():
             aa_[var] = self.signs.difference(sign)
@@ -791,6 +783,7 @@ class UCDetectionSigns(UCAnalysis):
             uv = self.cfg.edges[u, v]
             a = uv['action']
 
+            # TODO: Add support for UCCall
             if isinstance(a, UCAssignment):
                 var, sign = a.lhs, self.get_sign(R[u], a.rhs)
 

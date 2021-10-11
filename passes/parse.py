@@ -401,13 +401,13 @@ def p_b_expression_unpacked(p):
 
 
 def p_error(t):
+    # TODO: Append the error to errors and handle them in `parse`
     global src
     print("Syntax error at '%s' - Line %d, Column %d" %
           (t.value, lexer.lineno, find_column(src, t)))
 
 
 def parse(uc_src):
-    import networkx as nx
     import ply.yacc as yacc
 
     global src
@@ -419,9 +419,9 @@ def parse(uc_src):
 
     # If there is any semantic error
     if errors:
-        print("errors:")
+        print("Errors:")
         for error in errors:
-            print("\tline {}: {}".format(error[0], error[1]))
+            print("\tIn line {}: {}".format(error[0], error[1]))
         exit(1)
 
     return ast
