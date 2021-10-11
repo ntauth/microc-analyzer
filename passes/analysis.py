@@ -2,7 +2,7 @@
 
 import math
 
-from itertools import product
+from itertools import product, combinations
 from functools import reduce
 
 from lang.ops import *
@@ -148,14 +148,7 @@ class UCReachingDefs(UCAnalysis):
             return []
 
     def compute(self, copy=False):
-        kill = {}
-        gen = {}
         rd = {}
-
-        # Compute kill- and gensets
-        for u, v in self.cfg.edges:
-            kill[(u, v,)] = set(self.killset(u, v))
-            gen[(u, v,)] = set(self.genset(u, v))
 
         # Compute initial RD assignments
         for q in self.cfg.nodes:
@@ -268,14 +261,7 @@ class UCLiveVars(UCAnalysis):
         return list(set(storage))
 
     def compute(self, copy=False):
-        kill = {}
-        gen = {}
         lv = {}
-
-        # Compute kill- and gensets
-        for u, v in self.cfg.edges:
-            kill[(u, v,)] = set(self.killset(u, v))
-            gen[(u, v,)] = set(self.genset(u, v))
 
         # Compute initial LV assignments
         for q in self.cfg.nodes:
@@ -393,36 +379,73 @@ class UCDetectionSigns(UCAnalysis):
     def bool(cls):
         return set(['tt', 'ff'])
 
-    @classproperty
-    def jolly_node(cls):
-        return '?'
+    def __to_abstract_mem(self, vars):
+        return { id: self.__to_abstract(var) for id, var in vars.items() }
+
+    def __to_abstract(self, var):
+        if isinstance(var, UCRecord):
+            return set(
+                reduce(set.union, list(
+                    map(lambda f: self.get_sign({}, f.value), var.fields)), set())
+                )
+        elif isinstance(var, UCArray):
+            return set(
+                reduce(set.union, list(
+                    map(lambda v: self.get_sign({}, v), var.value)), set())
+                )
+        else:
+            return self.get_sign({}, var.value)
+
+    def __to_basic_mem(self, mem):
+        basic_mems = list()
+
+        # signs = []
+
+        # for var_id, sign in mem.items():
+        #     var = self.cfg.vars[var_id]
+
+        #     if not (isinstance(var, UCArray) or isinstance(var, UCRecord)):
+        #         basic_mem[var_id] = mem[var_id]
+
+        sign_product = list(product(*mem.values()))
+
+        for signs in sign_product:
+            basic_mem = {}
+
+            for var_id, sign in zip(mem.keys(), signs):
+                var = self.cfg.vars[var_id]
+
+                if isinstance(var, UCArray) or isinstance(var, UCRecord):
+                    # Arrays and records are amalgamated
+                    basic_mem[var_id] = mem[var_id]
+                else:
+                    basic_mem[var_id] = set([sign])
+
+            basic_mems.append(basic_mem)
+
+        return basic_mems
 
     @property
     def initial_mem(self):
-        def to_abstract(var):
-            if isinstance(var, UCRecord):
-                return set(
-                    reduce(set.union, list(
-                        map(lambda f: self.get_sign({}, f.value), var.fields)), set())
-                )
-            elif isinstance(var, UCArray):
-                return set(
-                    reduce(set.union, list(
-                        map(lambda v: self.get_sign({}, v), var.value)), set())
-                )
-            else:
-                return self.get_sign({}, var.value)
-
-        return { id: to_abstract(var) for id, var in self.cfg.vars.items() }
-
+        return self.__to_abstract_mem(self.cfg.vars)
 
     @property
     def empty_mem(self):
         return { id: set() for id, _ in self.cfg.vars.items() }
 
-    @property
-    def nodes_ex(self):
-        return list(self.cfg.nodes) + [UCReachingDefs.jolly_node]
+    # def __get_var_id(self, a):
+    #     if isinstance(a, UCArrayDeref) or isinstance(a, UCRecordDeref):
+    #         return a.lhs
+    #     elif isinstance(a, UCIdentifier):
+    #         return a
+    #     else:
+    #         raise TypeError(f'{a} is not an identifier or dereference expression')
+
+    # def __try_get_var_id(self, a):
+    #     try:
+    #         return self.__get_var_id(a)
+    #     except:
+    #         return None
 
     def get_sign(self, mem, a):
         assert isinstance(a, UCAExpression)
@@ -430,7 +453,7 @@ class UCDetectionSigns(UCAnalysis):
         def get_sign_aux(mem, a):
             sign = set()
 
-            if isinstance(a, UCAExpression): # TODO: Superfluous
+            if isinstance(a, UCAExpression):
                 if isinstance(a, UCNumberLiteral):
                     if a.value < 0:
                         sign.add('-')
@@ -513,7 +536,7 @@ class UCDetectionSigns(UCAnalysis):
                                     s1 == '+' and s2 == '+':
                                 sign.add('+')
                             elif s2 == '0':
-                                sign = self.empty_mem # TODO: Error condition
+                                sign = self.empty_mem
                             else:
                                 sign.add('0')
                 elif isinstance(a, UCMod):
@@ -529,7 +552,7 @@ class UCDetectionSigns(UCAnalysis):
                             elif s2 == '-':
                                 sign.add('-')
                             else: # s2 == '0'
-                                sign = self.empty_mem # TODO: Error condition
+                                sign = self.empty_mem
 
             return sign
 
@@ -573,82 +596,148 @@ class UCDetectionSigns(UCAnalysis):
                                 bool.add('tt')
                             else:
                                 bool.add('ff')
-
             # UCRExpressions
-            if isinstance(a, UCEq):
-                sign_lhs = self.get_sign(mem, a.lhs)
-                sign_rhs = self.get_sign(mem, a.rhs)
+            else:
+                if isinstance(a, UCEq):
+                    sign_lhs = self.get_sign(mem, a.lhs)
+                    sign_rhs = self.get_sign(mem, a.rhs)
 
-                for s1 in sign_lhs:
-                    for s2 in sign_rhs:
-                        if s1 == '0' and s2 == '0':
-                            bool.add('tt')
-                        elif s1 != s2:
-                            bool.add('ff')
-                        else:
-                            bool = self.bool
-            elif isinstance(a, UCNeq):
-                sign_lhs = self.get_sign(mem, a.lhs)
-                sign_rhs = self.get_sign(mem, a.rhs)
+                    exit = False
 
-                for s1 in sign_lhs:
-                    for s2 in sign_rhs:
-                        if s1 != s2:
-                            bool.add('tt')
-                        elif s1 == '0' and s2 == '0':
-                            bool.add('ff')
-                        else:
-                            bool = self.bool
-            elif isinstance(a, UCLt):
-                sign_lhs = self.get_sign(mem, a.lhs)
-                sign_rhs = self.get_sign(mem, a.rhs)
+                    for s1 in sign_lhs:
+                        for s2 in sign_rhs:
+                            if s1 == '0' and s2 == '0':
+                                bool.add('tt')
+                            elif s1 != s2:
+                                bool.add('ff')
+                            else:
+                                bool = self.bool
+                                exit = True
 
-                for s1 in sign_lhs:
-                    for s2 in sign_rhs:
-                        if s1 == '0' and s2 == '+' or\
-                            s1 == '-' and s2 == '+' or\
-                            s1 == '-' and s2 == '0':
-                            bool.add('tt')
-                        else:
-                            bool.add('ff')
-            elif isinstance(a, UCLte):
-                sign_lhs = self.get_sign(mem, a.lhs)
-                sign_rhs = self.get_sign(mem, a.rhs)
+                                break
 
-                for s1 in sign_lhs:
-                    for s2 in sign_rhs:
-                        if s1 == '0' and s2 == '+' or\
-                            s1 == '-' and s2 == '+' or\
-                            s1 == '-' and s2 == '0' or\
-                            s1 == s2:
-                            bool.add('tt')
-                        else:
-                            bool.add('ff')
-            elif isinstance(a, UCGt):
-                sign_lhs = self.get_sign(mem, a.lhs)
-                sign_rhs = self.get_sign(mem, a.rhs)
+                        if exit:
+                            break
+                elif isinstance(a, UCNeq):
+                    sign_lhs = self.get_sign(mem, a.lhs)
+                    sign_rhs = self.get_sign(mem, a.rhs)
 
-                for s1 in sign_lhs:
-                    for s2 in sign_rhs:
-                        if s1 == '+' and s2 == '0' or\
-                            s1 == '+' and s2 == '-' or\
-                            s1 == '0' and s2 == '-':
-                            bool.add('tt')
-                        else:
-                            bool.add('ff')
-            elif isinstance(a, UCGte):
-                sign_lhs = self.get_sign(mem, a.lhs)
-                sign_rhs = self.get_sign(mem, a.rhs)
+                    exit = False
 
-                for s1 in sign_lhs:
-                    for s2 in sign_rhs:
-                        if s1 == '+' and s2 == '0' or\
-                            s1 == '+' and s2 == '-' or\
-                            s1 == '0' and s2 == '-' or\
-                            s1 == s2:
-                            bool.add('tt')
-                        else:
-                            bool.add('ff')
+                    for s1 in sign_lhs:
+                        for s2 in sign_rhs:
+                            if s1 != s2:
+                                bool.add('tt')
+                            elif s1 == '0' and s2 == '0':
+                                bool.add('ff')
+                            else:
+                                bool = self.bool
+                                exit = True
+
+                                break
+
+                        if exit:
+                            break
+                elif isinstance(a, UCLt):
+                    sign_lhs = self.get_sign(mem, a.lhs)
+                    sign_rhs = self.get_sign(mem, a.rhs)
+
+                    exit = False
+
+                    for s1 in sign_lhs:
+                        for s2 in sign_rhs:
+                            if s1 == '0' and s2 == '+' or\
+                                    s1 == '-' and s2 == '+' or\
+                                    s1 == '-' and s2 == '0':
+                                bool.add('tt')
+                            elif s1 == '+' and s2 == '-' or\
+                                    s1 == '0' and s2 == '-' or\
+                                    s1 == '+' and s2 == '0' or\
+                                    s1 == s2 and s1 == '0':
+                                bool.add('ff')
+                            else:
+                                bool = self.bool
+                                exit = True
+
+                                break
+
+                        if exit:
+                            break
+                elif isinstance(a, UCLte):
+                    sign_lhs = self.get_sign(mem, a.lhs)
+                    sign_rhs = self.get_sign(mem, a.rhs)
+
+                    exit = False
+
+                    for s1 in sign_lhs:
+                        for s2 in sign_rhs:
+                            if s1 == '0' and s2 == '+' or\
+                                    s1 == '-' and s2 == '+' or\
+                                    s1 == '-' and s2 == '0' or\
+                                    s1 == s2 and s1 == '0':
+                                bool.add('tt')
+                            elif s1 == '+' and s2 == '-' or\
+                                    s1 == '+' and s2 == '0' or\
+                                    s1 == '0' and s2 == '-':
+                                bool.add('ff')
+                            else:
+                                bool = self.bool
+                                exit = True
+
+                                break
+
+                        if exit:
+                            break              
+                elif isinstance(a, UCGt):
+                    sign_lhs = self.get_sign(mem, a.lhs)
+                    sign_rhs = self.get_sign(mem, a.rhs)
+
+                    exit = False
+
+                    for s1 in sign_lhs:
+                        for s2 in sign_rhs:
+                            if s1 == '+' and s2 == '0' or\
+                                    s1 == '+' and s2 == '-' or\
+                                    s1 == '0' and s2 == '-':
+                                bool.add('tt')
+                            elif s1 == '-' and s2 == '+' or\
+                                    s1 == '0' and s2 == '+' or\
+                                    s1 == '-' and s2 == '0' or\
+                                    s1 == s2 and s1 == '0':
+                                bool.add('ff')
+                            else:
+                                bool = self.bool
+                                exit = True
+
+                                break
+
+                        if exit:
+                            break
+                elif isinstance(a, UCGte):
+                    sign_lhs = self.get_sign(mem, a.lhs)
+                    sign_rhs = self.get_sign(mem, a.rhs)
+
+                    exit = False
+
+                    for s1 in sign_lhs:
+                        for s2 in sign_rhs:
+                            if s1 == '+' and s2 == '0' or\
+                                    s1 == '+' and s2 == '-' or\
+                                    s1 == '0' and s2 == '-' or\
+                                    s1 == s2 and s1 == '0':
+                                bool.add('tt')
+                            elif s1 == '-' and s2 == '+' or\
+                                    s1 == '-' and s2 == '0' or\
+                                    s1 == '0' and s2 == '+':
+                                bool.add('ff')
+                            else:
+                                bool = self.bool
+                                exit = True
+
+                                break
+
+                        if exit:
+                            break
 
             return bool
 
@@ -658,7 +747,7 @@ class UCDetectionSigns(UCAnalysis):
         """Subset extended for DS analysis domain"""
         if not set(aa1.keys()).issubset(aa2.keys()):
             return False
-        
+
         for var, sign in aa1.items():
             if var not in aa2 or not sign.issubset(aa2[var]):
                 return False
@@ -676,9 +765,29 @@ class UCDetectionSigns(UCAnalysis):
 
         return aa
 
+    def __aa_intersection(self, aa1, aa2):
+        """Intersection extended for DS analysis domain"""
+        aa = aa1.copy() # Note that this is a shallow copy
+
+        for var, sign in aa2.items():
+            if var not in aa:
+                aa[var] = set()
+            aa[var] = aa[var].intersection(sign)
+
+        return aa
+
+    def __aa_complement(self, aa):
+        """Complement extended for DS analysis domain"""
+        aa_ = aa.copy() # Note that this is a shallow copy
+
+        for var, sign in aa_.items():
+            aa_[var] = self.signs.difference(sign)
+
+        return aa_
+
     @property
-    def update_fn(self):
-        def update_fn_impl(R, u, v):
+    def analysis_fn(self):
+        def analysis_fn_impl(R, u, v):
             uv = self.cfg.edges[u, v]
             a = uv['action']
 
@@ -700,37 +809,64 @@ class UCDetectionSigns(UCAnalysis):
                     R[v] = self.__aa_union(ru1, R[v])
                     return True
             elif isinstance(a, UCRExpression) or isinstance(a, UCBExpression):
-                bool = self.get_bool(R[u], a)
+                basic_mems = self.__to_basic_mem(R[u])
 
-                if 'tt' in bool:
-                    ru1 = R[u].copy()
-                else:
-                    ru1 = self.empty_mem
+                ru1 = self.empty_mem
+
+                for basic_mem in basic_mems:
+                    bool = self.get_bool(basic_mem, a)
+
+                    if 'tt' in bool:
+                        # for var, sign in basic_mem.items():
+                        #     print(f'{var}: {sign}')
+                        # print()
+                        ru1 = self.__aa_union(ru1, basic_mem)
+
+                # bool = self.get_bool(basic_mem, a)
+
+                # if 'tt' in bool:
+                #     ru1 = R[u].copy()
+                # else:
+                #     ru1 = self.empty_mem
 
                 if not self.__aa_issubset(ru1, R[v]):
                     R[v] = self.__aa_union(ru1, R[v])
+                    # print(f'{u}, {v}')
+                    # print(f'{ru1}' + '\n' + f'{R[v]}')
+                    # print('____________________________')
                     return True
 
             return False
 
-        return update_fn_impl
+        return analysis_fn_impl
 
     def compute(self, copy=False):
         ds = {}
 
         # Define the initial abstract memory
         mem = self.initial_mem
-        mem[UCIdentifier('n')] = set(['+'])
+        # mem[UCIdentifier('z')] = set(['0', '+'])
+        # mem[UCIdentifier('n')] = set(['+'])
+        # mem[UCIdentifier('x')] = set(['0', '+'])
+        # mem[UCIdentifier('y')] = set(['0', '+'])
+        # mem[UCIdentifier('A')] = set(['0', '+'])
 
         # Define the initial DS assignment
         for q in self.cfg.nodes:
             ds[q] = self.empty_mem
 
+        # basic_mems = self.__to_basic_mem(mem)
+
+        # for basic_mem in basic_mems:
+        #     for var, sign in basic_mem.items():
+        #         print(f'{var}: {sign}')
+        #     print()
+
         # Define the initial DS assignment for the source node
         ds[self.cfg.source] = mem
 
         # Compute the MFP solution for DS assignments
-        ucw = UCWorklist(self.cfg, self.update_fn, ds, strategy=UCLIFOStrategy)
+        ucw = UCWorklist(self.cfg, self.analysis_fn, ds, strategy=UCLIFOStrategy)
         self.iters = ucw.compute()
 
         if copy:
