@@ -2,13 +2,13 @@
 from .ast import *
 from .types import *
 
-class UCUnOp(UCASTNode):
+class UCUnOp(UCAExpression):
     """Micro-C Unary Op"""
     def __init__(self, op, opr):
         super().__init__(op, [opr])
         self.op = op
         self.opr = opr
-    
+
     def __str__(self):
         return f'({self.op} {self.opr})'
 
@@ -18,7 +18,7 @@ class UCExprUnOp(UCBExpression):
         super().__init__(op, [opr])
         self.op = op
         self.opr = opr
-    
+
     def __str__(self):
         return f'({self.op} {self.opr})'
 
@@ -36,7 +36,7 @@ class UCBinOp(UCStatement):
         self.op = op
         self.lhs = lhs
         self.rhs = rhs
-    
+
     def __str__(self):
         return f'({self.op} {self.lhs} {self.rhs})'
 
@@ -47,7 +47,7 @@ class UCAExprBinOp(UCAExpression):
         self.op = op
         self.lhs = lhs
         self.rhs = rhs
-    
+
     def __str__(self):
         return f'({self.op} {self.lhs} {self.rhs})'
 
@@ -58,7 +58,7 @@ class UCBExprBinOp(UCBExpression):
         self.op = op
         self.lhs = lhs
         self.rhs = rhs
-    
+
     def __str__(self):
         return f'({self.op} {self.lhs} {self.rhs})'
 
@@ -69,7 +69,7 @@ class UCRExprBinOp(UCRExpression):
         self.op = op
         self.lhs = lhs
         self.rhs = rhs
-    
+
     def __str__(self):
         return f'({self.op} {self.lhs} {self.rhs})'
 
@@ -80,7 +80,7 @@ class UCExprBinOp(UCBExpression):
         self.op = op
         self.lhs = lhs
         self.rhs = rhs
-    
+
     def __str__(self):
         return f'({self.op} {self.lhs} {self.rhs})'
 
@@ -98,6 +98,12 @@ class UCRBinOp(UCRExprBinOp):
     """Micro-C Relational Binary Op"""
     def __init__(self, op, lhs, rhs):
         super().__init__(op, lhs, rhs)
+
+class UCMinus(UCUnOp):
+    """Micro-C Minus Op"""
+    def __init__(self, opr):
+        super().__init__('-', opr)
+        self.opr = opr
 
 class UCAdd(UCABinOp):
     """Micro-C `+` operator"""

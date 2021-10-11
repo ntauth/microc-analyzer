@@ -243,6 +243,8 @@ class UCLiveVars(UCAnalysis):
             return
         elif isinstance(node, UCBoolLiteral):
             return
+        elif isinstance(node, UCMinus):
+            self.__genset(node.opr, storage)
         else:
             self.__genset(node.lhs, storage)
             self.__genset(node.rhs, storage)
@@ -658,7 +660,7 @@ class UCDetectionSigns(UCAnalysis):
         """Subset extended for DS analysis domain"""
         if not set(aa1.keys()).issubset(aa2.keys()):
             return False
-        
+
         for var, sign in aa1.items():
             if var not in aa2 or not sign.issubset(aa2[var]):
                 return False
@@ -720,7 +722,7 @@ class UCDetectionSigns(UCAnalysis):
 
         # Define the initial abstract memory
         mem = self.initial_mem
-        mem[UCIdentifier('n')] = set(['+'])
+        # mem[UCIdentifier('n')] = set(['+'])
 
         # Define the initial DS assignment
         for q in self.cfg.nodes:

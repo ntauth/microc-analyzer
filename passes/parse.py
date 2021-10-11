@@ -118,6 +118,7 @@ precedence = (
     ('left', 'PLUS', 'MINUS'),
     ('left', 'MULT', 'DIV', 'MOD'),
     ('right', 'NOT'),
+    ('right', 'UMINUS'),
 )
 
 
@@ -335,8 +336,9 @@ def p_a_expression_unpacked(p):
                              | a_expression MINUS a_expression
                              | a_expression MULT a_expression
                              | a_expression DIV a_expression
-                             | a_expression MOD a_expression'''
-    if len(p) > 2:
+                             | a_expression MOD a_expression
+                             | MINUS a_expression %prec UMINUS'''
+    if len(p) > 3:
         if p[2] == '+':
             p[0] = UCAdd(p[1], p[3])
         elif p[2] == '-':
@@ -349,6 +351,8 @@ def p_a_expression_unpacked(p):
             p[0] = UCMod(p[1], p[3])
         else:
             assert False
+    elif len(p) > 2:
+        p[0] =  UCMinus(p[2])
     else:
         p[0] = p[1]
 

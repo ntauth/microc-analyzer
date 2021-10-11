@@ -63,6 +63,8 @@ def __check_rvalue(lineno, rvalue):
             errors.append((lineno, '`{}` is an array'.format(rvalue.id)))
     elif isinstance(rvalue, UCNumberLiteral):
         pass
+    elif isinstance(rvalue, UCMinus):
+        __check_rvalue(lineno, rvalue.opr)
     else:
         __check_rvalue(lineno, rvalue.lhs)
         __check_rvalue(lineno, rvalue.rhs)
