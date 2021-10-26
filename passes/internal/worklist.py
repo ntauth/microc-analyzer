@@ -66,12 +66,6 @@ class UCWorklist:
 
     def __init__(self, cfg, af, r, strategy=UCFIFOStrategy):
         self.cfg = cfg
-
-        # if cfg.source is None:
-        #     self.worklist = []
-        # else:
-        #     self.worklist = list(nx.dfs_preorder_nodes(cfg, source=cfg.source))
-
         self.af = af
         self.r = r
         self.strategy = strategy(self)
