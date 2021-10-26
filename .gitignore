@@ -9,4 +9,6 @@
 
 # mac OS thingy
 .DS_Store
-.vscode/
+
+# VS Code
+.vscode
