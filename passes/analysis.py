@@ -267,7 +267,7 @@ class UCLiveVars(UCAnalysis):
         for q in self.cfg.nodes:
             lv[q] = set()
 
-        # Compute the MOP solution for LV assignments
+        # Compute the MFP solution for LV assignments
         ucw = UCWorklist(self.cfg, self.analysis_fn, lv, strategy=UCRRStrategy)
         self.iters = ucw.compute()
 
@@ -347,12 +347,7 @@ class UCDangerousVars(UCAnalysis):
                 if rd_[1] == self.jolly_node:
                     dv[q].add(rd_[0])
 
-        # Debug free variables
-        # TODO: Remove once sure that fv works as expected
-        # for u, v in self.cfg.edges:
-        #     print(f'{u}, {v}: {list(map(lambda v: str(v.id), self.fv(u, v)))}')
-
-        # Compute the MOP solution for DV assignments
+        # Compute the MFP solution for DV assignments
         ucw = UCWorklist(self.cfg, self.analysis_fn, dv, strategy=UCLIFOStrategy)
         self.iters = rd.iters + ucw.compute()
 
@@ -810,23 +805,10 @@ class UCDetectionSigns(UCAnalysis):
                     bool = self.get_bool(basic_mem, a)
 
                     if 'tt' in bool:
-                        # for var, sign in basic_mem.items():
-                        #     print(f'{var}: {sign}')
-                        # print()
                         ru1 = self.__aa_union(ru1, basic_mem)
-
-                # bool = self.get_bool(basic_mem, a)
-
-                # if 'tt' in bool:
-                #     ru1 = R[u].copy()
-                # else:
-                #     ru1 = self.empty_mem
 
                 if not self.__aa_issubset(ru1, R[v]):
                     R[v] = self.__aa_union(ru1, R[v])
-                    # print(f'{u}, {v}')
-                    # print(f'{ru1}' + '\n' + f'{R[v]}')
-                    # print('____________________________')
                     return True
 
             return False
@@ -838,22 +820,10 @@ class UCDetectionSigns(UCAnalysis):
 
         # Define the initial abstract memory
         mem = self.initial_mem
-        mem[UCIdentifier('z')] = set(['0', '+'])
-        # mem[UCIdentifier('n')] = set(['+'])
-        # mem[UCIdentifier('x')] = set(['0', '+'])
-        # mem[UCIdentifier('y')] = set(['0', '+'])
-        # mem[UCIdentifier('A')] = set(['0', '+'])
 
         # Define the initial DS assignment
         for q in self.cfg.nodes:
             ds[q] = self.empty_mem
-
-        # basic_mems = self.__to_basic_mem(mem)
-
-        # for basic_mem in basic_mems:
-        #     for var, sign in basic_mem.items():
-        #         print(f'{var}: {sign}')
-        #     print()
 
         # Define the initial DS assignment for the source node
         ds[self.cfg.source] = mem
