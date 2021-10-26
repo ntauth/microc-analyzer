@@ -2,6 +2,8 @@
 
 from abc import abstractmethod
 
+from collections import deque
+
 from passes.cfg import UCProgramGraph
 from lang.ops import *
 from utils.decorators import classproperty
@@ -14,7 +16,7 @@ class UCWorklistStrategy:
     """Worklist Strategy"""
 
     def __init__(self, ucw):
-        self._worklist = ucw.worklist
+        self._worklist = []
 
     @abstractmethod
     def update(self, x):
@@ -29,18 +31,19 @@ class UCWorklistStrategy:
         raise NotImplementedError()
 
 
-class UCRRStrategy(UCWorklistStrategy):
-    """Round-robin Strategy"""
+class UCFIFOStrategy(UCWorklistStrategy):
+    """FIFO (Queue) Strategy"""
 
     def __init__(self, ucw):
         super().__init__(ucw)
+        self._worklist = deque(self._worklist)
 
     def insert(self, x):
         if x is not None:
             self._worklist.append(x)
 
     def extract(self):
-        return self._worklist.pop(0)
+        return self._worklist.popleft()
 
 
 class UCLIFOStrategy(UCWorklistStrategy):
@@ -48,26 +51,35 @@ class UCLIFOStrategy(UCWorklistStrategy):
 
     def __init__(self, ucw):
         super().__init__(ucw)
+        self._worklist = deque(self._worklist)
 
     def insert(self, x):
         if x is not None:
-            self._worklist.insert(0, x)
+            self._worklist.append(x)
 
     def extract(self):
-        return self._worklist.pop(0)
+        return self._worklist.pop()
 
 
 class UCWorklist:
     """Worklist Algorithm"""
 
-    def __init__(self, cfg, af, r, strategy=UCRRStrategy):
+    def __init__(self, cfg, af, r, strategy=UCFIFOStrategy):
         self.cfg = cfg
-        self.worklist = list(nx.dfs_preorder_nodes(cfg, source=cfg.source))\
-            if cfg.source is not None\
-            else []
+
+        # if cfg.source is None:
+        #     self.worklist = []
+        # else:
+        #     self.worklist = list(nx.dfs_preorder_nodes(cfg, source=cfg.source))
+
         self.af = af
         self.r = r
         self.strategy = strategy(self)
+        self.worklist = self.strategy._worklist
+
+        if cfg.source is not None:
+            for q in nx.dfs_preorder_nodes(cfg, source=cfg.source):
+                self.strategy.insert(q)
 
     @classproperty
     def empty(cls):
