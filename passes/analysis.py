@@ -838,7 +838,7 @@ class UCDetectionSigns(UCAnalysis):
 
         # Define the initial abstract memory
         mem = self.initial_mem
-        # mem[UCIdentifier('z')] = set(['0', '+'])
+        mem[UCIdentifier('z')] = set(['0', '+'])
         # mem[UCIdentifier('n')] = set(['+'])
         # mem[UCIdentifier('x')] = set(['0', '+'])
         # mem[UCIdentifier('y')] = set(['0', '+'])
