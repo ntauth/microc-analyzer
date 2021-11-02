@@ -25,7 +25,7 @@ class UCAnalysis:
 
     @property
     def nodes_ex(self):
-        return list(self.cfg.nodes) + [UCReachingDefs.jolly_node]
+        return list(self.cfg.nodes) + [UCAnalysis.jolly_node]
 
     def fv(self, u, v):
         uv = self.cfg.edges[u, v]
@@ -160,7 +160,7 @@ class UCReachingDefs(UCAnalysis):
                                           [self.cfg.source]))
 
         # Compute the MFP solution for RD assignments
-        ucw = UCWorklist(self.cfg, self.analysis_fn, rd, strategy=UCFIFOStrategy)
+        ucw = UCWorklist(self.cfg, self.analysis_fn, rd, strategy=UCRRStrategy)
         self.iters = ucw.compute()
 
         if copy:
@@ -268,7 +268,7 @@ class UCLiveVars(UCAnalysis):
             lv[q] = set()
 
         # Compute the MFP solution for LV assignments
-        ucw = UCWorklist(self.cfg, self.analysis_fn, lv, strategy=UCFIFOStrategy)
+        ucw = UCWorklist(self.cfg, self.analysis_fn, lv, strategy=UCRRStrategy)
         self.iters = ucw.compute()
 
         # Sort LV assignment vales by identifier
@@ -348,7 +348,7 @@ class UCDangerousVars(UCAnalysis):
                     dv[q].add(rd_[0])
 
         # Compute the MFP solution for DV assignments
-        ucw = UCWorklist(self.cfg, self.analysis_fn, dv, strategy=UCFIFOStrategy)
+        ucw = UCWorklist(self.cfg, self.analysis_fn, dv, strategy=UCRRStrategy)
         self.iters = rd.iters + ucw.compute()
 
         if copy:
@@ -829,7 +829,7 @@ class UCDetectionSigns(UCAnalysis):
         ds[self.cfg.source] = mem
 
         # Compute the MFP solution for DS assignments
-        ucw = UCWorklist(self.cfg, self.analysis_fn, ds, strategy=UCFIFOStrategy)
+        ucw = UCWorklist(self.cfg, self.analysis_fn, ds, strategy=UCRRStrategy)
         self.iters = ucw.compute()
 
         if copy:
