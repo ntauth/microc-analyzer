@@ -81,8 +81,9 @@ class UCRRStrategy(UCWorklistStrategy):
         if len(self._worklist[0]) == 0:
             rp, _ = UCSpanTree.dfs_tree(self._cfg)
             
-            for x in set(self._worklist[0]).difference(self._worklist[1]):
-                rp.pop(x)
+            for x in self._cfg.nodes:
+                if x not in self._worklist[1]:
+                    rp.pop(x)
 
             rp = UCSpanTree.sort_rp(rp)
 
