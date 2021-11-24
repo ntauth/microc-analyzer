@@ -333,23 +333,15 @@ class UCDangerousVars(UCAnalysis):
     def compute(self, copy=False):
         dv = {}
 
-        # DV=RD for the initial assignment
-        rd = UCReachingDefs(self.cfg)
-        rd.compute()
-
-        # Lift the assignment to the correct analysis domain
-        # and only add initial definitions
-        for q, rds in rd.aa.items():
+        # Initial DV assignment
+        for q in self.cfg.nodes:
             dv[q] = set()
-
-            for rd_ in rds:
-                # Is it an initial definition?
-                if rd_[1] == self.jolly_node:
-                    dv[q].add(rd_[0])
+        
+        dv[self.cfg.source] = set(self.cfg.vars)
 
         # Compute the MFP solution for DV assignments
         ucw = UCWorklist(self.cfg, self.analysis_fn, dv, strategy=UCRRStrategy)
-        self.iters = rd.iters + ucw.compute()
+        self.iters = ucw.compute()
 
         if copy:
             return dv
